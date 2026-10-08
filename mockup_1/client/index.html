@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Submit a Content Idea</title>
+    <link rel="stylesheet" href="resources/styles/style.css">
+</head>
+<body>
+    <h1>Submit a Content Idea</h1>
+    <p><a href="ideas.html">Review ideas</a></p>
+
+    <form id="idea-form">
+        <p>
+            <label for="name">Your name</label><br>
+            <input type="text" id="name" name="name">
+        </p>
+        <p>
+            <label for="title">Idea title (required)</label><br>
+            <input type="text" id="title" name="title" required>
+        </p>
+        <p>
+            <label for="description">Idea description</label><br>
+            <textarea id="description" name="description" rows="4" cols="50"></textarea>
+        </p>
+        <p>
+            <label for="caption">Caption idea</label><br>
+            <textarea id="caption" name="caption" rows="3" cols="50"></textarea>
+        </p>
+        <fieldset>
+            <legend>Platform</legend>
+            <label><input type="checkbox" name="platforms" value="Instagram"> Instagram</label>
+            <label><input type="checkbox" name="platforms" value="TikTok"> TikTok</label>
+        </fieldset>
+        <p>
+            <label for="hashtags">Hashtags</label><br>
+            <input type="text" id="hashtags" name="hashtags" placeholder="#summer #recipes">
+        </p>
+        <fieldset>
+            <legend>Photo and video links (optional)</legend>
+            <p>
+                Put your photo or video in the company OneDrive folder, click <b>Share</b>, then
+                <b>Copy link</b>, and paste the link here. Links must start with https://
+            </p>
+            <div id="links"></div>
+            <button type="button" id="add-link">+ Add a link</button>
+        </fieldset>
+        <p><button type="submit" id="submit-button">Submit idea</button></p>
+    </form>
+
+    <p id="message"></p>
+
+    <script src="resources/scripts/submit.js"></script>
+</body>
+</html>
