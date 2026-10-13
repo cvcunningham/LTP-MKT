@@ -90,21 +90,6 @@ function renderPreview(link, fileUrl) {
     return img;
 }
 
-// Everything the person submitted about an idea. Used on the Review and Idea Bank pages.
-function renderIdeaDetails(parent, idea) {
-    addElement(parent, "h2", idea.title);
-    addElement(parent, "p", `Submitted by ${idea.name || "Anonymous"} on ${formatDateTime(idea.createdAt)}`);
-    addElement(parent, "p", "Campus: " + idea.campus);
-    addElement(parent, "p", "Content type: " + idea.contentType);
-    addElement(parent, "p", "Content category: " + idea.contentCategory);
-    addElement(parent, "p", "Concept: " + idea.concept);
-    addElement(parent, "p", "Why it could work: " + idea.whyItCouldWork);
-    addElement(parent, "p", "Caption: " + idea.caption);
-    addElement(parent, "p", "Platforms: " + idea.platforms.join(", "));
-    addElement(parent, "p", "Hashtags: " + idea.hashtags);
-    parent.appendChild(renderLinks(idea.links));
-}
-
 // Loads a list from the API and shows each entry, or a plain message if something's wrong.
 async function loadList(container, url, renderOne, emptyText) {
     container.textContent = "Loading...";

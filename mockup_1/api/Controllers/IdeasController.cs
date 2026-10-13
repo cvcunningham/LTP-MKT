@@ -12,8 +12,6 @@ public class IdeasController : ControllerBase
 {
     private static readonly string[] AllowedPlatforms = { "Instagram", "TikTok" };
     private static readonly string[] AllowedLinkTypes = { IdeaLink.Photo, IdeaLink.Video };
-    private const string ReviewView = "Review"; // waiting for a decision (the Review page)
-    private const string BankView = "Bank";     // waiting + rejected (the Idea Bank page)
 
     // Uploads: up to 500 MB per file, and up to 2 GB for the whole submission.
     private const long MaxFileBytes = 500L * 1024 * 1024;
@@ -38,21 +36,18 @@ public class IdeasController : ControllerBase
         _logger = logger;
     }
 
-    // GET /api/ideas?view=Review   (ideas waiting for a decision)
-    // GET /api/ideas?view=Bank     (waiting + rejected; approved ideas are on the Production Tracker)
+    // GET /api/ideas   (the Idea Bank: waiting for review + rejected.
+    // Approved ideas are on the Production Tracker instead.)
     [HttpGet]
-    public async Task<ActionResult<List<IdeaDto>>> GetAll([FromQuery] string view = ReviewView)
+    public async Task<ActionResult<List<IdeaDto>>> GetAll()
     {
-        if (view != ReviewView && view != BankView)
-            return BadRequest(new { errors = new[] { "View must be Review or Bank." } });
-
         // Rejected ideas are deleted automatically once they're old enough. Checking here,
-        // whenever the list is loaded, is simple and often enough for 20-30 ideas a month.
+        // whenever the Idea Bank is loaded, is simple and often enough for 20-30 ideas a month.
         await _repo.DeleteRejectedBeforeAsync(DateTime.UtcNow.AddDays(-Idea.RejectedDaysKept));
 
         var ideas = await _repo.GetAllAsync();
         return ideas
-            .Where(i => i.ReviewStatus == Idea.Pending || (view == BankView && i.ReviewStatus == Idea.Rejected))
+            .Where(i => i.ReviewStatus == Idea.Pending || i.ReviewStatus == Idea.Rejected)
             .Select(DtoMapping.ToDto)
             .ToList();
     }

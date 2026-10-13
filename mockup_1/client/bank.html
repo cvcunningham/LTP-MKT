@@ -9,18 +9,21 @@
     <h1>Idea Bank</h1>
     <p>
         <a href="index.html">Submit an idea</a> |
-        <a href="ideas.html">Review ideas</a> |
         <b>Idea Bank</b> |
         <a href="tracker.html">Production Tracker</a>
     </p>
 
     <p>
-        A record of every idea submitted and its decision. Approved ideas move to the
-        <a href="tracker.html">Production Tracker</a>. Rejected ideas are deleted automatically
-        30 days after the decision.
+        <b>Approve</b> moves an idea to the <a href="tracker.html">Production Tracker</a>.
+        <b>Reject</b> moves it to "Rejected" below, and it is deleted automatically 30 days later.
+        Decisions can't be changed.
     </p>
 
-    <div id="ideas">Loading...</div>
+    <h2>Waiting for review</h2>
+    <div id="waiting">Loading...</div>
+
+    <h2>Rejected</h2>
+    <div id="rejected">Loading...</div>
 
     <script src="resources/scripts/common.js"></script>
     <script src="resources/scripts/bank.js"></script>

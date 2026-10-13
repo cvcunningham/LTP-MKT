@@ -34,7 +34,9 @@ the API endpoints, and the MySQL migration plan).
 
 ## Design rules
 
-- **Zero styling.** `style.css` stays empty; no inline styles or CSS frameworks.
+- **Almost zero styling.** The only CSS is the `.card` box (border, padding) in `style.css`, used
+  for idea cards in the Idea Bank and Production Tracker. No other styling, inline styles or CSS
+  frameworks unless we ask.
 - Keep it a **very simple mockup**: plain HTML forms, lists, and buttons.
 - The users are **not technical**: use plain-language messages, confirm before final or
   destructive actions, and never clear a form when saving fails.
@@ -42,10 +44,12 @@ the API endpoints, and the MySQL migration plan).
 
 ## Decisions already made
 
-**Pages** (four, linked to each other at the top)
-- **Submit an idea** (`index.html`) → **Review ideas** (`ideas.html`) → **Idea Bank**
-  (`bank.html`) → **Production Tracker** (`tracker.html`).
-- Review page = where decisions are made. Idea Bank = read-only record.
+**Pages** (three, linked to each other at the top)
+- **Submit an idea** (`index.html`) → **Idea Bank** (`bank.html`) → **Production Tracker**
+  (`tracker.html`).
+- Review and Idea Bank are **one page**: the Idea Bank shows "Waiting for review" cards (with
+  Approve / Reject / Delete) on top and "Rejected" cards below.
+- Each idea is shown as a **card** (an `<article class="card">` box).
 
 **Submitting an idea**
 - One form = one idea.
@@ -68,20 +72,20 @@ the API endpoints, and the MySQL migration plan).
   idea; client secret in `dotnet user-secrets`, never in git; uploaded files stay in OneDrive when
   an idea is deleted.
 
-**Reviewing** (Review page)
+**Reviewing** (in the Idea Bank)
 - New ideas are **Pending** ("Waiting for review"). Reviewers **Approve** or **Reject** the
   **whole idea** (the links just help explain it).
 - **No reason is needed** to reject.
 - **Decisions are final.** An approved or rejected idea can't be changed.
 - **Approve** → the idea moves to the Production Tracker and leaves the Idea Bank.
-- **Reject** → it stays in the Idea Bank marked Rejected, then is **deleted automatically
-  30 days** after the decision (checked whenever the Review page or Idea Bank loads).
+- **Reject** → it moves to "Rejected" in the Idea Bank, then is **deleted automatically
+  30 days** after the decision (checked whenever the Idea Bank loads).
 - For now **anyone can review**. Login will be added later so only staff can see ideas and
   links.
 
 **Idea Bank**
-- Read-only. Shows Pending and Rejected ideas with: timestamp, content name, campus, content
-  category, links, concept, why it could work, who submitted it, and the decision.
+- Cards show only: timestamp, content name, campus, content category, links, concept, why it
+  could work, who submitted it, and the decision (not type, caption, platform or hashtags).
 
 **Production Tracker**
 - One item per approved idea (created on approve, status "Not started").
@@ -94,7 +98,7 @@ the API endpoints, and the MySQL migration plan).
 
 **Deleting**
 - **Delete is permanent.** It removes the idea, all its links and its tracker item, whatever
-  its status (from the Review page or the Production Tracker).
+  its status (from the Idea Bank or the Production Tracker).
 - No archive, no soft delete, no restore, no `.bak` copies of deleted data.
 
 **Old data**

@@ -9,28 +9,31 @@ edits, reviews and posts each one.
 | Page | File | What it's for |
 |---|---|---|
 | Submit an idea | `client/index.html` | One form = one idea. "+ Add a link" adds a row for each photo/video link. |
-| Review ideas | `client/ideas.html` | Ideas waiting for a decision, with **Approve**, **Reject** and **Delete**. |
-| Idea Bank | `client/bank.html` | Read-only record of ideas waiting for review and ideas that were rejected. |
+| Idea Bank | `client/bank.html` | "Waiting for review" cards with **Approve**, **Reject** and **Delete**, then "Rejected" cards. |
 | Production Tracker | `client/tracker.html` | Approved ideas and their production details. Filter: In progress / Posted. |
 
-All four pages link to each other at the top. They share `resources/scripts/common.js`.
+The pages link to each other at the top and share `resources/scripts/common.js`.
+Each idea is shown as a **card** (a box with a border); that's the only styling, in `style.css`.
+
+An idea card in the Idea Bank shows: content name, who submitted it and when (the timestamp),
+campus, content category, concept, why it could work, the links, and the decision.
 
 ## How an idea moves through the site
 
 ```
-Submit an idea ──► Waiting for review ──► Approve ──► Production Tracker (Not started ... Posted)
-                     (Review page and         │
-                      Idea Bank)              └──► Reject ──► Idea Bank as "Rejected"
-                                                              └─ deleted automatically after 30 days
+Submit an idea ──► Idea Bank: Waiting for review ──► Approve ──► Production Tracker (Not started ... Posted)
+                                                  │
+                                                  └──► Reject ──► Idea Bank: Rejected
+                                                                  └─ deleted automatically after 30 days
 ```
 
-- New ideas are **Pending** ("Waiting for review") and show on the Review page and in the Idea Bank.
+- New ideas are **Pending** and show under "Waiting for review" in the Idea Bank.
 - **Approve** moves the idea to the Production Tracker (status "Not started"). It leaves the Idea Bank.
-- **Reject** needs no reason. The idea stays in the Idea Bank marked Rejected, showing the date
+- **Reject** needs no reason. The idea moves to "Rejected" in the Idea Bank, showing the date
   it will be deleted, and the app deletes it (with its links) **30 days** after the decision.
-  The check runs whenever the Review page or Idea Bank is loaded.
+  The check runs whenever the Idea Bank is loaded.
 - **Decisions are final.** An approved or rejected idea can't be changed.
-- **Delete** (Review page or Production Tracker) permanently removes the idea, its links and its
+- **Delete** (Idea Bank or Production Tracker) permanently removes the idea, its links and its
   tracker entry. It can't be undone.
 - For now anyone can do all of this (no login yet).
 
@@ -98,8 +101,7 @@ shows on any page. Delete those rows from the CSV files if you no longer need th
 
 | Method | URL | Body | What it does |
 |---|---|---|---|
-| GET | `/api/ideas?view=Review` | | Ideas waiting for review |
-| GET | `/api/ideas?view=Bank` | | Ideas waiting for review + rejected ideas (with `deletesOn`) |
+| GET | `/api/ideas` | | The Idea Bank: ideas waiting for review + rejected ideas (with `deletesOn`) |
 | POST | `/api/ideas` | multipart form: `idea` = the idea as JSON (with a `links` array) | Submit an idea |
 | POST | `/api/ideas/{id}/approve` | | Approve (Pending only); creates its tracker item |
 | POST | `/api/ideas/{id}/reject` | | Reject (Pending only) |

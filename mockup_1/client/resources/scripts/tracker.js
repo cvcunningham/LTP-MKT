@@ -23,10 +23,11 @@ function loadItems() {
 
 function renderItem(item) {
     const idea = item.idea;
-    const section = document.createElement("div");
+    const section = document.createElement("article");
+    section.className = "card";
 
     // From the approved idea (can't be changed here).
-    addElement(section, "h2", idea.title);
+    addElement(section, "h3", idea.title);
     addElement(section, "p", "Campus: " + idea.campus);
     addElement(section, "p", "Content type: " + idea.contentType);
     addElement(section, "p", "Content category: " + idea.contentCategory);
@@ -76,7 +77,6 @@ function renderItem(item) {
         }
     });
     section.appendChild(actions);
-    section.appendChild(document.createElement("hr"));
     return section;
 }
 
