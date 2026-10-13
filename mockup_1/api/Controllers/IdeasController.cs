@@ -12,7 +12,8 @@ public class IdeasController : ControllerBase
 {
     private static readonly string[] AllowedPlatforms = { "Instagram", "TikTok" };
     private static readonly string[] AllowedLinkTypes = { IdeaLink.Photo, IdeaLink.Video };
-    private static readonly string[] Views = { Idea.Pending, Idea.Approved, Idea.Denied };
+    private const string ReviewView = "Review"; // waiting for a decision (the Review page)
+    private const string BankView = "Bank";     // waiting + rejected (the Idea Bank page)
 
     // Uploads: up to 500 MB per file, and up to 2 GB for the whole submission.
     private const long MaxFileBytes = 500L * 1024 * 1024;
@@ -37,15 +38,23 @@ public class IdeasController : ControllerBase
         _logger = logger;
     }
 
-    // GET /api/ideas?view=Pending   (Pending, Approved or Denied; default Pending)
+    // GET /api/ideas?view=Review   (ideas waiting for a decision)
+    // GET /api/ideas?view=Bank     (waiting + rejected; approved ideas are on the Production Tracker)
     [HttpGet]
-    public async Task<ActionResult<List<IdeaDto>>> GetAll([FromQuery] string view = Idea.Pending)
+    public async Task<ActionResult<List<IdeaDto>>> GetAll([FromQuery] string view = ReviewView)
     {
-        if (!Views.Contains(view))
-            return BadRequest(new { errors = new[] { "View must be Pending, Approved or Denied." } });
+        if (view != ReviewView && view != BankView)
+            return BadRequest(new { errors = new[] { "View must be Review or Bank." } });
+
+        // Rejected ideas are deleted automatically once they're old enough. Checking here,
+        // whenever the list is loaded, is simple and often enough for 20-30 ideas a month.
+        await _repo.DeleteRejectedBeforeAsync(DateTime.UtcNow.AddDays(-Idea.RejectedDaysKept));
 
         var ideas = await _repo.GetAllAsync();
-        return ideas.Where(i => i.ReviewStatus == view).Select(ToDto).ToList();
+        return ideas
+            .Where(i => i.ReviewStatus == Idea.Pending || (view == BankView && i.ReviewStatus == Idea.Rejected))
+            .Select(DtoMapping.ToDto)
+            .ToList();
     }
 
     // POST /api/ideas   (multipart form: "idea" = the idea as JSON, "files" = uploaded files)
@@ -107,7 +116,11 @@ public class IdeasController : ControllerBase
         {
             Name = request.Name?.Trim() ?? "",
             Title = request.Title.Trim(),
-            Description = request.Description?.Trim() ?? "",
+            Campus = request.Campus?.Trim() ?? "",
+            ContentType = request.ContentType?.Trim() ?? "",
+            ContentCategory = request.ContentCategory?.Trim() ?? "",
+            Concept = request.Concept?.Trim() ?? "",
+            WhyItCouldWork = request.WhyItCouldWork?.Trim() ?? "",
             Caption = request.Caption?.Trim() ?? "",
             Platforms = string.Join(";", request.Platforms),
             Hashtags = request.Hashtags?.Trim() ?? "",
@@ -138,7 +151,7 @@ public class IdeasController : ControllerBase
             }
 
             var saved = await _repo.AddAsync(idea, links);
-            return Ok(ToDto(saved));
+            return Ok(DtoMapping.ToDto(saved));
         }
         catch (Exception ex)
         {
@@ -172,13 +185,13 @@ public class IdeasController : ControllerBase
         }
     }
 
-    // POST /api/ideas/5/approve
+    // POST /api/ideas/5/approve   (moves it to the Production Tracker)
     [HttpPost("{id}/approve")]
-    public Task<IActionResult> Approve(int id) => Review(id, Idea.Approved, "");
+    public async Task<IActionResult> Approve(int id) => await Decided(id, await _repo.ApproveAsync(id));
 
-    // POST /api/ideas/5/deny   (JSON body: { "reason": "..." })
-    [HttpPost("{id}/deny")]
-    public Task<IActionResult> Deny(int id, DenyRequest request) => Review(id, Idea.Denied, request.Reason.Trim());
+    // POST /api/ideas/5/reject   (no reason needed; deleted automatically after 30 days)
+    [HttpPost("{id}/reject")]
+    public async Task<IActionResult> Reject(int id) => await Decided(id, await _repo.RejectAsync(id));
 
     // DELETE /api/ideas/5   (permanent: removes the idea and its links; works for any status).
     // Uploaded files stay in the OneDrive folder.
@@ -186,9 +199,9 @@ public class IdeasController : ControllerBase
     public async Task<IActionResult> Delete(int id) =>
         await _repo.DeleteAsync(id) ? NoContent() : NotFound();
 
-    private async Task<IActionResult> Review(int id, string status, string denialReason)
+    private async Task<IActionResult> Decided(int id, bool changed)
     {
-        if (await _repo.SetReviewAsync(id, status, denialReason))
+        if (changed)
             return NoContent();
 
         var idea = await _repo.GetByIdAsync(id);
@@ -209,18 +222,4 @@ public class IdeasController : ControllerBase
 
     private static bool IsHttpsUrl(string url) =>
         Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
-
-    private static IdeaDto ToDto(Idea idea) => new(
-        idea.Id,
-        idea.Name,
-        idea.Title,
-        idea.Description,
-        idea.Caption,
-        idea.Platforms.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList(),
-        idea.Hashtags,
-        idea.CreatedAt,
-        idea.ReviewStatus,
-        idea.DenialReason,
-        idea.ReviewedAt,
-        idea.Links.Select(l => new LinkDto(l.Id, l.Type, l.Label, l.Url, l.IsUpload)).ToList());
 }

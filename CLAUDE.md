@@ -42,50 +42,71 @@ the API endpoints, and the MySQL migration plan).
 
 ## Decisions already made
 
+**Pages** (four, linked to each other at the top)
+- **Submit an idea** (`index.html`) → **Review ideas** (`ideas.html`) → **Idea Bank**
+  (`bank.html`) → **Production Tracker** (`tracker.html`).
+- Review page = where decisions are made. Idea Bank = read-only record.
+
 **Submitting an idea**
 - One form = one idea.
-- Fields: your name, title (required), description, caption (one caption idea), platform,
-  hashtags, and photo/video links.
+- Fields: your name (who submitted it), content name (= title, required), campus, content type
+  (the format, e.g. Reel), content category (the topic, e.g. Food), concept, why it could work,
+  caption (one caption idea), platform, hashtags, and photo/video links.
+- Campus, content type and content category are **free text**, not dropdowns.
 - Platform: checkboxes for **Instagram** and **TikTok** (one or both).
 
 **Photos and videos**
 - **The app's own server never keeps photo or video files.** Files live in the company's
-  **SharePoint/OneDrive folder**; the app saves only the address (and OneDrive id).
-- Two ways to attach a file (both allowed on one idea):
-  - **Upload a file**: the API sends it to the SharePoint site folder via **Microsoft Graph**
-    (app-only sign-in, chunked upload session). **500 MB per file**, 2 GB per idea. Allowed:
-    .jpg .jpeg .png .heic .gif (Photo), .mp4 .mov .m4v (Video); type is set from the extension.
-    No local/test storage mode: uploads only work once the OneDrive settings are filled in.
-    The client secret goes in `dotnet user-secrets`, never in git.
-  - **Paste a link** to a file already in OneDrive.
-- If a submission fails partway, nothing is saved and files already sent are removed from OneDrive.
-- **Any number of files/links per idea**, and an idea with none is allowed.
-- Each one has a **type (Photo or Video)** and an **optional label**.
-- Links must start with **`https://`**.
+  OneDrive folder; the app saves only the link.
+- The form has **links only**: any number per idea (none is allowed). Each has a
+  **type (Photo or Video)** and an **optional label**, and must start with **`https://`**.
 - Links open in a new tab, where OneDrive offers Download / Add to My files. Hovering shows the
   full address.
-- Uploaded files **play/show on the review page** with a **Download** link.
+- **File upload to OneDrive is built but turned off**: the upload button is hidden on the form,
+  and the API code (`api/Storage/`, Microsoft Graph) is kept, unused. Whether to remove it or turn
+  it back on is undecided. Don't remove it without asking. Its rules: 500 MB per file, 2 GB per
+  idea; client secret in `dotnet user-secrets`, never in git; uploaded files stay in OneDrive when
+  an idea is deleted.
 
-**Reviewing**
-- New ideas are **Pending**. Reviewers **Approve** or **Deny** the **whole idea** (the links
-  just help explain it).
-- **Denials require a reason**; approvals don't.
-- **Decisions are final.** An approved or denied idea can't be changed.
-- The review page shows **Waiting for review** by default, with filters for **Approved** and
-  **Denied** only.
+**Reviewing** (Review page)
+- New ideas are **Pending** ("Waiting for review"). Reviewers **Approve** or **Reject** the
+  **whole idea** (the links just help explain it).
+- **No reason is needed** to reject.
+- **Decisions are final.** An approved or rejected idea can't be changed.
+- **Approve** → the idea moves to the Production Tracker and leaves the Idea Bank.
+- **Reject** → it stays in the Idea Bank marked Rejected, then is **deleted automatically
+  30 days** after the decision (checked whenever the Review page or Idea Bank loads).
 - For now **anyone can review**. Login will be added later so only staff can see ideas and
   links.
 
+**Idea Bank**
+- Read-only. Shows Pending and Rejected ideas with: timestamp, content name, campus, content
+  category, links, concept, why it could work, who submitted it, and the decision.
+
+**Production Tracker**
+- One item per approved idea (created on approve, status "Not started").
+- From the idea, can't be changed here: content name, campus, content type, content category,
+  caption, and the idea's links (shown as "Content files").
+- Filled in and changed anytime, by anyone, with a Save button: Filmer, Editor,
+  Reviewer/approver, Posting (= **who posts it**), Target post date, Status.
+- Status list: Not started → Filming → Editing → Ready for review → Scheduled → Posted.
+- Filter: In progress / Posted. Posted items stay until someone deletes them.
+
 **Deleting**
-- **Delete is permanent.** It removes the idea and all its links completely, whatever its
-  status. Admins delete old ideas to free up space.
-- **Uploaded files stay in OneDrive** when an idea is deleted (only the CSV rows are removed).
+- **Delete is permanent.** It removes the idea, all its links and its tracker item, whatever
+  its status (from the Review page or the Production Tracker).
 - No archive, no soft delete, no restore, no `.bak` copies of deleted data.
 
-**Data files** (`mockup_1/api/Data/`)
-- `ideas.csv`: Id, Name, Title, Description, Caption, Platforms (`Instagram;TikTok`),
-  Hashtags, CreatedAt, ReviewStatus, DenialReason, ReviewedAt
-- `links.csv`: Id, IdeaId, Type, Label, Url, DriveItemId (empty for pasted links)
+**Old data**
+- Ideas from before the Idea Bank/Tracker (the old Approved "Bowl Image" and the old "Denied"
+  one) are intentionally **left out**: they don't show on any page.
+
+**Data files** (`mockup_1/api/Data/`; new columns always go at the end)
+- `ideas.csv`: Id, Name, Title, Concept, Caption, Platforms (`Instagram;TikTok`), Hashtags,
+  CreatedAt, ReviewStatus (Pending/Approved/Rejected), DenialReason (older ideas only),
+  ReviewedAt, Campus, ContentType, ContentCategory, WhyItCouldWork
+- `links.csv`: Id, IdeaId, Type, Label, Url, DriveItemId (only for uploads)
+- `production.csv`: Id, IdeaId, Filmer, Editor, Reviewer, Poster, TargetPostDate, Status, UpdatedAt
 
 ## Constraints and context
 

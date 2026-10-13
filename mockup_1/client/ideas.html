@@ -7,19 +7,22 @@
 </head>
 <body>
     <h1>Review Content Ideas</h1>
-    <p><a href="index.html">Submit a new idea</a></p>
+    <p>
+        <a href="index.html">Submit an idea</a> |
+        <b>Review ideas</b> |
+        <a href="bank.html">Idea Bank</a> |
+        <a href="tracker.html">Production Tracker</a>
+    </p>
 
     <p>
-        <label for="view-filter">Show</label>
-        <select id="view-filter">
-            <option value="Pending">Waiting for review</option>
-            <option value="Approved">Approved</option>
-            <option value="Denied">Denied</option>
-        </select>
+        These ideas are waiting for a decision. <b>Approve</b> moves an idea to the Production
+        Tracker. <b>Reject</b> keeps it in the Idea Bank for 30 days, then it is deleted automatically.
+        Decisions can't be changed.
     </p>
 
     <div id="ideas">Loading...</div>
 
+    <script src="resources/scripts/common.js"></script>
     <script src="resources/scripts/ideas.js"></script>
 </body>
 </html>

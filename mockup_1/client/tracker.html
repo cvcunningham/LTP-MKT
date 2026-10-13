@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Production Tracker</title>
+    <link rel="stylesheet" href="resources/styles/style.css">
+</head>
+<body>
+    <h1>Production Tracker</h1>
+    <p>
+        <a href="index.html">Submit an idea</a> |
+        <a href="ideas.html">Review ideas</a> |
+        <a href="bank.html">Idea Bank</a> |
+        <b>Production Tracker</b>
+    </p>
+
+    <p>
+        Approved ideas, soonest target post date first. Fill in who is filming, editing, reviewing
+        and posting each one, then click <b>Save</b>.
+    </p>
+
+    <p>
+        <label for="view-filter">Show</label>
+        <select id="view-filter">
+            <option value="InProgress">In progress</option>
+            <option value="Posted">Posted</option>
+        </select>
+    </p>
+
+    <div id="items">Loading...</div>
+
+    <script src="resources/scripts/common.js"></script>
+    <script src="resources/scripts/tracker.js"></script>
+</body>
+</html>

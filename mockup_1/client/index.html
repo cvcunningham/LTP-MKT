@@ -7,7 +7,12 @@
 </head>
 <body>
     <h1>Submit a Content Idea</h1>
-    <p><a href="ideas.html">Review ideas</a></p>
+    <p>
+        <b>Submit an idea</b> |
+        <a href="ideas.html">Review ideas</a> |
+        <a href="bank.html">Idea Bank</a> |
+        <a href="tracker.html">Production Tracker</a>
+    </p>
 
     <form id="idea-form">
         <p>
@@ -15,12 +20,28 @@
             <input type="text" id="name" name="name">
         </p>
         <p>
-            <label for="title">Idea title (required)</label><br>
+            <label for="title">Content name (required)</label><br>
             <input type="text" id="title" name="title" required>
         </p>
         <p>
-            <label for="description">Idea description</label><br>
-            <textarea id="description" name="description" rows="4" cols="50"></textarea>
+            <label for="campus">Campus</label><br>
+            <input type="text" id="campus" name="campus">
+        </p>
+        <p>
+            <label for="contentType">Content type (the format, e.g. Reel, Photo, Carousel, Story)</label><br>
+            <input type="text" id="contentType" name="contentType">
+        </p>
+        <p>
+            <label for="contentCategory">Content category (the topic, e.g. Food, Events, Staff spotlight)</label><br>
+            <input type="text" id="contentCategory" name="contentCategory">
+        </p>
+        <p>
+            <label for="concept">Concept</label><br>
+            <textarea id="concept" name="concept" rows="4" cols="50"></textarea>
+        </p>
+        <p>
+            <label for="whyItCouldWork">Why it could work</label><br>
+            <textarea id="whyItCouldWork" name="whyItCouldWork" rows="3" cols="50"></textarea>
         </p>
         <p>
             <label for="caption">Caption idea</label><br>
@@ -36,18 +57,12 @@
             <input type="text" id="hashtags" name="hashtags" placeholder="#summer #recipes">
         </p>
         <fieldset>
-            <legend>Photos and videos (optional)</legend>
+            <legend>Photo and video links (optional)</legend>
             <p>
-                <b>Upload a file</b> from your computer (up to 500 MB each). It is saved to the company
-                OneDrive folder for you. Photos: .jpg .jpeg .png .heic .gif. Videos: .mp4 .mov .m4v
+                Put your photo or video in the company OneDrive folder, click <b>Share</b>, then
+                <b>Copy link</b>, and paste the link here. Links must start with https://
             </p>
-            <p>
-                Or, if the file is already in OneDrive, click <b>Share</b>, then <b>Copy link</b>, and
-                <b>add a link</b>. Links must start with https://
-            </p>
-            <div id="uploads"></div>
             <div id="links"></div>
-            <button type="button" id="add-upload">+ Upload a file</button>
             <button type="button" id="add-link">+ Add a link</button>
         </fieldset>
         <p><button type="submit" id="submit-button">Submit idea</button></p>
@@ -55,6 +70,7 @@
 
     <p id="message"></p>
 
+    <script src="resources/scripts/common.js"></script>
     <script src="resources/scripts/submit.js"></script>
 </body>
 </html>
