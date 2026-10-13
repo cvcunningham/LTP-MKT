@@ -1,5 +1,7 @@
+using System.Text.Json;
 using api.Models;
 using api.Repositories;
+using api.Storage;
 using Microsoft.AspNetCore.Mvc;
 
 namespace api.Controllers;
@@ -12,11 +14,27 @@ public class IdeasController : ControllerBase
     private static readonly string[] AllowedLinkTypes = { IdeaLink.Photo, IdeaLink.Video };
     private static readonly string[] Views = { Idea.Pending, Idea.Approved, Idea.Denied };
 
-    private readonly IIdeaRepository _repo;
+    // Uploads: up to 500 MB per file, and up to 2 GB for the whole submission.
+    private const long MaxFileBytes = 500L * 1024 * 1024;
+    private const long MaxSubmissionBytes = 2L * 1024 * 1024 * 1024;
 
-    public IdeasController(IIdeaRepository repo)
+    // File types that can be uploaded, and whether each counts as a Photo or a Video.
+    private static readonly Dictionary<string, string> UploadTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".jpg"] = IdeaLink.Photo, [".jpeg"] = IdeaLink.Photo, [".png"] = IdeaLink.Photo,
+        [".heic"] = IdeaLink.Photo, [".gif"] = IdeaLink.Photo,
+        [".mp4"] = IdeaLink.Video, [".mov"] = IdeaLink.Video, [".m4v"] = IdeaLink.Video
+    };
+
+    private readonly IIdeaRepository _repo;
+    private readonly IFileStorage _storage;
+    private readonly ILogger<IdeasController> _logger;
+
+    public IdeasController(IIdeaRepository repo, IFileStorage storage, ILogger<IdeasController> logger)
     {
         _repo = repo;
+        _storage = storage;
+        _logger = logger;
     }
 
     // GET /api/ideas?view=Pending   (Pending, Approved or Denied; default Pending)
@@ -30,11 +48,27 @@ public class IdeasController : ControllerBase
         return ideas.Where(i => i.ReviewStatus == view).Select(ToDto).ToList();
     }
 
-    // POST /api/ideas   (JSON body)
+    // POST /api/ideas   (multipart form: "idea" = the idea as JSON, "files" = uploaded files)
+    // Everything is checked first, then the files go to OneDrive, then the idea is saved.
+    // If any step fails, nothing is saved, so the user can just try again.
     [HttpPost]
-    public async Task<ActionResult<IdeaDto>> Create(IdeaRequest request)
+    [RequestSizeLimit(MaxSubmissionBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxSubmissionBytes)]
+    public async Task<ActionResult<IdeaDto>> Create(
+        [FromForm(Name = "idea")] string ideaJson,
+        [FromForm(Name = "files")] List<IFormFile> files,
+        CancellationToken cancellationToken)
     {
+        IdeaRequest? request;
+        try { request = JsonSerializer.Deserialize<IdeaRequest>(ideaJson, JsonSerializerOptions.Web); }
+        catch (JsonException) { request = null; }
+        if (request == null)
+            return BadRequest(new { errors = new[] { "The form didn't arrive correctly. Please try again." } });
+
         var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(request.Title))
+            errors.Add("Please give your idea a title.");
 
         if (request.Platforms.Any(p => !AllowedPlatforms.Contains(p)))
             errors.Add("Platform must be Instagram or TikTok.");
@@ -46,6 +80,24 @@ public class IdeasController : ControllerBase
                 errors.Add($"Link {i + 1}: choose Photo or Video.");
             if (!IsHttpsUrl(link.Url))
                 errors.Add($"Link {i + 1}: must be a full web address starting with https://");
+        }
+
+        if (files.Count != request.Uploads.Count)
+            errors.Add("Some of the files didn't arrive with the form. Please try again.");
+        if (files.Count > 0 && !_storage.IsConfigured)
+            errors.Add("Uploading files isn't set up yet (the OneDrive connection hasn't been configured). " +
+                       "You can paste a OneDrive link instead.");
+
+        for (var i = 0; i < files.Count; i++)
+        {
+            var file = files[i];
+            if (!UploadTypes.ContainsKey(Path.GetExtension(file.FileName)))
+                errors.Add($"File {i + 1} (\"{file.FileName}\"): only photos and videos can be uploaded " +
+                           "(.jpg, .jpeg, .png, .heic, .gif, .mp4, .mov, .m4v).");
+            if (file.Length == 0)
+                errors.Add($"File {i + 1} (\"{file.FileName}\") is empty.");
+            if (file.Length > MaxFileBytes)
+                errors.Add($"File {i + 1} (\"{file.FileName}\") is bigger than 500 MB.");
         }
 
         if (errors.Count > 0)
@@ -68,8 +120,56 @@ public class IdeasController : ControllerBase
             Url = l.Url.Trim()
         }).ToList();
 
-        var saved = await _repo.AddAsync(idea, links);
-        return Ok(ToDto(saved));
+        var uploaded = new List<StoredFile>();
+        try
+        {
+            for (var i = 0; i < files.Count; i++)
+            {
+                await using var stream = files[i].OpenReadStream();
+                var stored = await _storage.UploadAsync(stream, files[i].Length, files[i].FileName, cancellationToken);
+                uploaded.Add(stored);
+                links.Add(new IdeaLink
+                {
+                    Type = UploadTypes[Path.GetExtension(files[i].FileName)],
+                    Label = request.Uploads[i].Label?.Trim() ?? "",
+                    Url = stored.WebUrl,
+                    DriveItemId = stored.Id
+                });
+            }
+
+            var saved = await _repo.AddAsync(idea, links);
+            return Ok(ToDto(saved));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Saving idea \"{Title}\" failed", idea.Title);
+            await RemoveUploads(uploaded);
+            return StatusCode(StatusCodes.Status502BadGateway, new
+            {
+                errors = new[] { "A file couldn't be sent to OneDrive. Please try again. " +
+                                 "If it keeps happening, tell the person who looks after this site." }
+            });
+        }
+    }
+
+    // GET /api/ideas/files/7   (plays/shows an uploaded file by sending the browser to
+    // a short-lived direct address from OneDrive)
+    [HttpGet("files/{linkId:int}")]
+    public async Task<IActionResult> GetFile(int linkId, CancellationToken cancellationToken)
+    {
+        var link = await _repo.GetLinkAsync(linkId);
+        if (link == null || !link.IsUpload)
+            return NotFound();
+
+        try
+        {
+            return Redirect(await _storage.GetContentUrlAsync(link.DriveItemId, cancellationToken));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Couldn't get the file for link {LinkId} from OneDrive", linkId);
+            return StatusCode(StatusCodes.Status502BadGateway);
+        }
     }
 
     // POST /api/ideas/5/approve
@@ -80,7 +180,8 @@ public class IdeasController : ControllerBase
     [HttpPost("{id}/deny")]
     public Task<IActionResult> Deny(int id, DenyRequest request) => Review(id, Idea.Denied, request.Reason.Trim());
 
-    // DELETE /api/ideas/5   (permanent: removes the idea and its links; works for any status)
+    // DELETE /api/ideas/5   (permanent: removes the idea and its links; works for any status).
+    // Uploaded files stay in the OneDrive folder.
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id) =>
         await _repo.DeleteAsync(id) ? NoContent() : NotFound();
@@ -94,6 +195,16 @@ public class IdeasController : ControllerBase
         if (idea == null)
             return NotFound();
         return Conflict(new { errors = new[] { $"This idea was already {idea.ReviewStatus.ToLower()}. Decisions can't be changed." } });
+    }
+
+    // Cleans up files from a submission that failed partway, so they don't pile up in OneDrive.
+    private async Task RemoveUploads(List<StoredFile> uploaded)
+    {
+        foreach (var file in uploaded)
+        {
+            try { await _storage.DeleteAsync(file.Id, CancellationToken.None); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Couldn't remove leftover OneDrive file {FileId}", file.Id); }
+        }
     }
 
     private static bool IsHttpsUrl(string url) =>
@@ -111,5 +222,5 @@ public class IdeasController : ControllerBase
         idea.ReviewStatus,
         idea.DenialReason,
         idea.ReviewedAt,
-        idea.Links.Select(l => new LinkDto(l.Type, l.Label, l.Url)).ToList());
+        idea.Links.Select(l => new LinkDto(l.Id, l.Type, l.Label, l.Url, l.IsUpload)).ToList());
 }

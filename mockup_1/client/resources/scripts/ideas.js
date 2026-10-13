@@ -60,20 +60,51 @@ function renderLinks(links) {
 
         // Only https links become clickable (the API enforces this too).
         if (link.url.startsWith("https://")) {
-            const a = document.createElement("a");
-            a.href = link.url;
-            a.target = "_blank";   // opens in a new tab, where OneDrive etc. offer Download / Save
-            a.rel = "noopener noreferrer";
-            a.title = link.url;    // hovering shows the full address
-            a.textContent = link.label || "Open " + link.type.toLowerCase();
-            item.appendChild(a);
+            addLink(item, link.url, link.label || "Open " + link.type.toLowerCase());
         } else {
             item.appendChild(document.createTextNode(link.url));
+        }
+
+        // Files uploaded through the app can be played/shown right here, and downloaded.
+        if (link.isUpload) {
+            const fileUrl = `${API_URL}/files/${link.id}`;
+            item.appendChild(document.createTextNode(" | "));
+            addLink(item, fileUrl, "Download");
+            item.appendChild(document.createElement("br"));
+            item.appendChild(renderPreview(link, fileUrl));
         }
         list.appendChild(item);
     });
     wrapper.appendChild(list);
     return wrapper;
+}
+
+// width is an HTML attribute (not CSS) so big photos/4K videos don't fill the whole screen.
+function renderPreview(link, fileUrl) {
+    if (link.type === "Video") {
+        const video = document.createElement("video");
+        video.src = fileUrl;
+        video.controls = true;
+        video.preload = "metadata"; // only loads the video when someone presses play
+        video.width = 320;
+        video.textContent = "This browser can't play this video here. Use Download instead.";
+        return video;
+    }
+    const img = document.createElement("img");
+    img.src = fileUrl;
+    img.alt = (link.label || "Uploaded photo") + " (if it doesn't show, use Download)";
+    img.width = 320;
+    return img;
+}
+
+function addLink(parent, url, text) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";   // opens in a new tab, where OneDrive etc. offer Download / Save
+    a.rel = "noopener noreferrer";
+    a.title = url;         // hovering shows the full address
+    a.textContent = text;
+    parent.appendChild(a);
 }
 
 function renderActions(idea) {
@@ -107,7 +138,8 @@ function renderActions(idea) {
 
     const del = document.createElement("p");
     addButton(del, "Delete", () => {
-        if (confirm(`Permanently delete "${idea.title}" and its links? This can't be undone.`)) {
+        if (confirm(`Permanently delete "${idea.title}" and its links? This can't be undone. ` +
+                    "(Uploaded files stay in the company OneDrive folder.)")) {
             send(String(idea.id), "DELETE");
         }
     });

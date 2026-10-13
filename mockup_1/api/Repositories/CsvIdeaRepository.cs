@@ -7,7 +7,7 @@ public class CsvIdeaRepository : IIdeaRepository
 {
     private const string IdeasHeader =
         "Id,Name,Title,Description,Caption,Platforms,Hashtags,CreatedAt,ReviewStatus,DenialReason,ReviewedAt";
-    private const string LinksHeader = "Id,IdeaId,Type,Label,Url";
+    private const string LinksHeader = "Id,IdeaId,Type,Label,Url,DriveItemId";
 
     private readonly string _ideasPath;
     private readonly string _linksPath;
@@ -41,6 +41,13 @@ public class CsvIdeaRepository : IIdeaRepository
 
     public async Task<Idea?> GetByIdAsync(int id) =>
         (await GetAllAsync()).FirstOrDefault(i => i.Id == id);
+
+    public async Task<IdeaLink?> GetLinkAsync(int linkId)
+    {
+        await _lock.WaitAsync();
+        try { return ReadLinks().FirstOrDefault(l => l.Id == linkId); }
+        finally { _lock.Release(); }
+    }
 
     public async Task<Idea> AddAsync(Idea idea, List<IdeaLink> links)
     {
@@ -121,7 +128,7 @@ public class CsvIdeaRepository : IIdeaRepository
 
     private static string[] ToRow(IdeaLink l) => new[]
     {
-        l.Id.ToString(), l.IdeaId.ToString(), l.Type, l.Label, l.Url
+        l.Id.ToString(), l.IdeaId.ToString(), l.Type, l.Label, l.Url, l.DriveItemId
     };
 
     private List<Idea> ReadIdeas() =>
@@ -147,7 +154,8 @@ public class CsvIdeaRepository : IIdeaRepository
             IdeaId = int.Parse(r[1]),
             Type = r[2],
             Label = r[3],
-            Url = r[4]
+            Url = r[4],
+            DriveItemId = r[5]
         }).ToList();
 
     private static DateTime ParseDate(string value) =>

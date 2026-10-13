@@ -36,12 +36,18 @@
             <input type="text" id="hashtags" name="hashtags" placeholder="#summer #recipes">
         </p>
         <fieldset>
-            <legend>Photo and video links (optional)</legend>
+            <legend>Photos and videos (optional)</legend>
             <p>
-                Put your photo or video in the company OneDrive folder, click <b>Share</b>, then
-                <b>Copy link</b>, and paste the link here. Links must start with https://
+                <b>Upload a file</b> from your computer (up to 500 MB each). It is saved to the company
+                OneDrive folder for you. Photos: .jpg .jpeg .png .heic .gif. Videos: .mp4 .mov .m4v
             </p>
+            <p>
+                Or, if the file is already in OneDrive, click <b>Share</b>, then <b>Copy link</b>, and
+                <b>add a link</b>. Links must start with https://
+            </p>
+            <div id="uploads"></div>
             <div id="links"></div>
+            <button type="button" id="add-upload">+ Upload a file</button>
             <button type="button" id="add-link">+ Add a link</button>
         </fieldset>
         <p><button type="submit" id="submit-button">Submit idea</button></p>

@@ -49,14 +49,22 @@ the API endpoints, and the MySQL migration plan).
 - Platform: checkboxes for **Instagram** and **TikTok** (one or both).
 
 **Photos and videos**
-- **The app does not store photo or video files.** Only links are saved.
-- Users put files in the **company's shared OneDrive folder** and paste the share link.
-- **Any number of links per idea**, and an idea with no links is allowed.
-- Each link has a **type (Photo or Video)** and an **optional label**.
+- **The app's own server never keeps photo or video files.** Files live in the company's
+  **SharePoint/OneDrive folder**; the app saves only the address (and OneDrive id).
+- Two ways to attach a file (both allowed on one idea):
+  - **Upload a file**: the API sends it to the SharePoint site folder via **Microsoft Graph**
+    (app-only sign-in, chunked upload session). **500 MB per file**, 2 GB per idea. Allowed:
+    .jpg .jpeg .png .heic .gif (Photo), .mp4 .mov .m4v (Video); type is set from the extension.
+    No local/test storage mode: uploads only work once the OneDrive settings are filled in.
+    The client secret goes in `dotnet user-secrets`, never in git.
+  - **Paste a link** to a file already in OneDrive.
+- If a submission fails partway, nothing is saved and files already sent are removed from OneDrive.
+- **Any number of files/links per idea**, and an idea with none is allowed.
+- Each one has a **type (Photo or Video)** and an **optional label**.
 - Links must start with **`https://`**.
 - Links open in a new tab, where OneDrive offers Download / Add to My files. Hovering shows the
   full address.
-- Automatic upload to OneDrive (via Microsoft Graph) may come later; not now.
+- Uploaded files **play/show on the review page** with a **Download** link.
 
 **Reviewing**
 - New ideas are **Pending**. Reviewers **Approve** or **Deny** the **whole idea** (the links
@@ -71,12 +79,13 @@ the API endpoints, and the MySQL migration plan).
 **Deleting**
 - **Delete is permanent.** It removes the idea and all its links completely, whatever its
   status. Admins delete old ideas to free up space.
+- **Uploaded files stay in OneDrive** when an idea is deleted (only the CSV rows are removed).
 - No archive, no soft delete, no restore, no `.bak` copies of deleted data.
 
 **Data files** (`mockup_1/api/Data/`)
 - `ideas.csv`: Id, Name, Title, Description, Caption, Platforms (`Instagram;TikTok`),
   Hashtags, CreatedAt, ReviewStatus, DenialReason, ReviewedAt
-- `links.csv`: Id, IdeaId, Type, Label, Url
+- `links.csv`: Id, IdeaId, Type, Label, Url, DriveItemId (empty for pasted links)
 
 ## Constraints and context
 

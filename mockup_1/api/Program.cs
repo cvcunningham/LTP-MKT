@@ -1,4 +1,5 @@
 using api.Repositories;
+using api.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,10 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
 builder.Services.AddSingleton<IIdeaRepository, CsvIdeaRepository>();
+
+// Uploaded photos/videos go to the company's SharePoint/OneDrive folder.
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IFileStorage, OneDriveFileStorage>();
 
 var app = builder.Build();
 
