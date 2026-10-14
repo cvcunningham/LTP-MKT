@@ -4,33 +4,39 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace api.Controllers;
 
-// The Production Tracker: approved ideas, with who films, edits, reviews and posts them.
+// The Production Tracker (and the Content Calendar): approved ideas, with who films, edits,
+// reviews and posts them.
 [ApiController]
 [Route("api/production")]
 public class ProductionController : ControllerBase
 {
     private const string InProgressView = "InProgress";
-    private const string PostedView = "Posted";
+    private const string CompletedView = "Completed";
+    private const string AllView = "All";
 
     private readonly IIdeaRepository _repo;
+    private readonly IEmployeeRepository _employees;
 
-    public ProductionController(IIdeaRepository repo)
+    public ProductionController(IIdeaRepository repo, IEmployeeRepository employees)
     {
         _repo = repo;
+        _employees = employees;
     }
 
-    // GET /api/production?view=InProgress   (everything not Posted yet; default)
-    // GET /api/production?view=Posted
+    // GET /api/production?view=InProgress   (everything not Completed yet; default)
+    // GET /api/production?view=Completed
+    // GET /api/production?view=All          (the Content Calendar)
     [HttpGet]
     public async Task<ActionResult<List<ProductionDto>>> GetAll([FromQuery] string view = InProgressView)
     {
-        if (view != InProgressView && view != PostedView)
-            return BadRequest(new { errors = new[] { "View must be InProgress or Posted." } });
+        if (view != InProgressView && view != CompletedView && view != AllView)
+            return BadRequest(new { errors = new[] { "View must be InProgress, Completed or All." } });
 
         var items = await _repo.GetProductionAsync();
+        var employees = (await _employees.GetAllAsync()).ToDictionary(e => e.Id);
         return items
-            .Where(p => (p.Status == ProductionItem.Posted) == (view == PostedView))
-            .Select(DtoMapping.ToDto)
+            .Where(p => view == AllView || (p.Status == ProductionItem.Completed) == (view == CompletedView))
+            .Select(p => DtoMapping.ToDto(p, employees))
             .ToList();
     }
 
@@ -38,20 +44,35 @@ public class ProductionController : ControllerBase
     [HttpGet("statuses")]
     public string[] GetStatuses() => ProductionItem.Statuses;
 
-    // PUT /api/production/3   (JSON body: filmer, editor, reviewer, poster, targetPostDate, status)
+    // PUT /api/production/3   (JSON body: filmerId, editorId, reviewerId, posterId, targetPostDate, status)
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, ProductionUpdateRequest request)
     {
+        var errors = new List<string>();
         if (!ProductionItem.Statuses.Contains(request.Status))
-            return BadRequest(new { errors = new[] { "Please choose a status from the list." } });
+            errors.Add("Please choose a status from the list.");
+
+        var employees = (await _employees.GetAllAsync()).Select(e => e.Id).ToHashSet();
+        var jobs = new (string Job, int? Id)[]
+        {
+            ("Filmer", request.FilmerId), ("Editor", request.EditorId),
+            ("Reviewer/approver", request.ReviewerId), ("Poster", request.PosterId)
+        };
+        foreach (var (job, employeeId) in jobs)
+        {
+            if (employeeId is int chosen && !employees.Contains(chosen))
+                errors.Add($"{job}: that person isn't on the employee list anymore. Please refresh the page and choose again.");
+        }
+        if (errors.Count > 0)
+            return BadRequest(new { errors });
 
         var item = new ProductionItem
         {
             Id = id,
-            Filmer = request.Filmer?.Trim() ?? "",
-            Editor = request.Editor?.Trim() ?? "",
-            Reviewer = request.Reviewer?.Trim() ?? "",
-            Poster = request.Poster?.Trim() ?? "",
+            FilmerId = request.FilmerId,
+            EditorId = request.EditorId,
+            ReviewerId = request.ReviewerId,
+            PosterId = request.PosterId,
             TargetPostDate = request.TargetPostDate,
             Status = request.Status
         };

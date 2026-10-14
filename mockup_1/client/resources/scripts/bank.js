@@ -1,71 +1,76 @@
-// The Idea Bank: ideas waiting for review (with Approve / Reject / Delete) and rejected ideas.
+// The Ideas Bank: ideas waiting for review (with Approve / Deny / Delete) and denied ideas.
+// (The API and CSV call a denied idea "Rejected".)
 const waiting = document.getElementById("waiting");
 const rejected = document.getElementById("rejected");
 
 async function loadIdeas() {
-    waiting.textContent = "Loading...";
-    rejected.textContent = "Loading...";
+    showMessage(waiting, "Loading...");
+    showMessage(rejected, "Loading...");
     try {
-        const ideas = await (await fetch(`${API_BASE}/ideas`)).json();
+        const ideas = await getJson("/ideas");
         showCards(waiting, ideas.filter((i) => i.reviewStatus === "Pending"), "No ideas are waiting for review.");
-        showCards(rejected, ideas.filter((i) => i.reviewStatus === "Rejected"), "No rejected ideas.");
+        showCards(rejected, ideas.filter((i) => i.reviewStatus === "Rejected"), "No denied ideas.");
     } catch (error) {
-        const text = "Could not reach the API. Is it running? (" + error.message + ")";
-        waiting.textContent = text;
+        showMessage(waiting, error.message, "text-danger");
         rejected.textContent = "";
     }
 }
 
 function showCards(container, ideas, emptyText) {
-    container.textContent = ideas.length === 0 ? emptyText : "";
+    if (ideas.length === 0) {
+        showMessage(container, emptyText);
+        return;
+    }
+    container.textContent = "";
     ideas.forEach((idea) => container.appendChild(renderCard(idea)));
 }
 
 // One idea card. Uses textContent (via addElement) so typed text can't inject HTML/scripts.
 function renderCard(idea) {
-    const card = document.createElement("article");
-    card.className = "card";
+    const column = document.createElement("div");
+    column.className = "col-md-6 col-xl-4";
+    const denied = idea.reviewStatus === "Rejected";
+    const card = addElement(column, "article", null, "card h-100" + (denied ? " border-secondary" : ""));
 
-    addElement(card, "h3", idea.title);
-    addElement(card, "p", `Submitted by ${idea.name || "Anonymous"} on ${formatDateTime(idea.createdAt)}`);
-    addElement(card, "p", "Campus: " + idea.campus);
-    addElement(card, "p", "Content category: " + idea.contentCategory);
-    addElement(card, "p", "Concept: " + idea.concept);
-    addElement(card, "p", "Why it could work: " + idea.whyItCouldWork);
-    card.appendChild(renderLinks(idea.links));
+    const body = addElement(card, "div", null, "card-body");
+    addElement(body, "h3", idea.title, "card-title h5");
+    addElement(body, "p", `Submitted by ${idea.name || "Anonymous"} on ${formatDateTime(idea.createdAt)}`, "card-subtitle mb-3 text-body-secondary small");
+    addDetail(body, "Campus", idea.campus);
+    addDetail(body, "Content category", idea.contentCategory);
+    addDetail(body, "Concept", idea.concept);
+    addDetail(body, "Why it could work", idea.whyItCouldWork);
+    body.appendChild(renderLinks(idea.links));
 
-    if (idea.reviewStatus === "Rejected") {
-        addElement(card, "p", `Decision: Rejected on ${formatDateTime(idea.reviewedAt)} ` +
-            `(will be deleted automatically on ${formatDate(idea.deletesOn)})`);
+    const footer = addElement(card, "div", null, "card-footer");
+    if (denied) {
+        addElement(footer, "small", `Denied on ${formatDateTime(idea.reviewedAt)}. ` +
+            `It will be deleted automatically on ${formatDate(idea.deletesOn)}.`, "text-body-secondary");
     } else {
-        addElement(card, "p", "Decision: Waiting for review");
-        card.appendChild(renderActions(idea));
+        renderActions(footer, idea);
     }
-    return card;
+    return column;
 }
 
-function renderActions(idea) {
-    const actions = document.createElement("p");
-    addButton(actions, "Approve", async () => {
+function renderActions(footer, idea) {
+    addButton(footer, "Approve", async () => {
         if (confirm(`Approve "${idea.title}"? It will move to the Production Tracker. This can't be changed later.`)) {
             await sendChange(`${API_BASE}/ideas/${idea.id}/approve`, "POST");
             loadIdeas();
         }
-    });
-    addButton(actions, "Reject", async () => {
-        if (confirm(`Reject "${idea.title}"? This can't be changed later. ` +
+    }, "btn-success");
+    addButton(footer, "Deny", async () => {
+        if (confirm(`Deny "${idea.title}"? This can't be changed later. ` +
                     "It will be deleted automatically in 30 days.")) {
             await sendChange(`${API_BASE}/ideas/${idea.id}/reject`, "POST");
             loadIdeas();
         }
-    });
-    addButton(actions, "Delete", async () => {
+    }, "btn-outline-secondary");
+    addButton(footer, "Delete", async () => {
         if (confirm(`Permanently delete "${idea.title}" and its links? This can't be undone.`)) {
             await sendChange(`${API_BASE}/ideas/${idea.id}`, "DELETE");
             loadIdeas();
         }
-    });
-    return actions;
+    }, "btn-outline-danger");
 }
 
 loadIdeas();

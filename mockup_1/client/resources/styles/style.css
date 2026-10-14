@@ -1,8 +1,162 @@
-/* The only styling in the site: a box around each idea card. */
+/* Bootstrap does almost all the styling. Only what Bootstrap can't do goes here. */
+
+/* ----- Brand look (matches the Low Tide Poke Company logo, resources/images/logo.png) -----
+   Teal = logo background, purple = "LOW TIDE" letters, coral = "POKE COMPANY" letters.
+   The hex values are sampled from the logo image so the logo blends into the teal header.
+   Bootstrap's own color variables are pointed at these, so btn-primary, links, badges,
+   focus rings and so on use the brand colors without extra classes on each page.
+   Contrast: white text is fine on purple. On teal or coral always use dark purple text. */
+:root {
+    --ltp-teal: #1CCC9E;
+    --ltp-teal-light: #EBF9F4;   /* page background */
+    --ltp-purple: #344789;
+    --ltp-purple-dark: #283769;  /* hover / pressed, and text on teal */
+    --ltp-coral: #F38D65;
+    --ltp-font-display: "Fredoka", system-ui, sans-serif;  /* rounded, like "POKE COMPANY" */
+
+    --bs-primary: #344789;
+    --bs-primary-rgb: 52, 71, 137;
+    --bs-primary-bg-subtle: #D9DEEE;
+    --bs-primary-border-subtle: #A9B4D9;
+    --bs-primary-text-emphasis: #1C2648;
+    --bs-info: #1CCC9E;
+    --bs-info-rgb: 28, 204, 158;
+    --bs-link-color: #344789;
+    --bs-link-color-rgb: 52, 71, 137;
+    --bs-link-hover-color: #283769;
+    --bs-link-hover-color-rgb: 40, 55, 105;
+    --bs-focus-ring-color: rgba(52, 71, 137, 0.25);
+    --bs-heading-color: #344789;
+}
+
+body {
+    background-color: var(--ltp-teal-light);
+}
+
+h1, h2, h3, .h1, .h2, .h3, .h4, .h5, .btn, .navbar {
+    font-family: var(--ltp-font-display);
+}
+
+h1 {
+    font-weight: 700;
+}
+
+/* A short coral wave-colored bar under each page title. */
+h1::after {
+    content: "";
+    display: block;
+    width: 4rem;
+    height: 0.35rem;
+    margin-top: 0.4rem;
+    border-radius: 1rem;
+    background-color: var(--ltp-coral);
+}
+
+.btn {
+    font-weight: 500;
+}
+
+/* Bootstrap builds its button colors in at compile time, so they're set again here. */
+.btn-primary {
+    --bs-btn-bg: var(--ltp-purple);
+    --bs-btn-border-color: var(--ltp-purple);
+    --bs-btn-hover-bg: var(--ltp-purple-dark);
+    --bs-btn-hover-border-color: var(--ltp-purple-dark);
+    --bs-btn-active-bg: var(--ltp-purple-dark);
+    --bs-btn-active-border-color: var(--ltp-purple-dark);
+    --bs-btn-disabled-bg: var(--ltp-purple);
+    --bs-btn-disabled-border-color: var(--ltp-purple);
+    --bs-btn-focus-shadow-rgb: 52, 71, 137;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--ltp-purple);
+    --bs-btn-border-color: var(--ltp-purple);
+    --bs-btn-hover-bg: var(--ltp-purple);
+    --bs-btn-hover-border-color: var(--ltp-purple);
+    --bs-btn-active-bg: var(--ltp-purple-dark);
+    --bs-btn-active-border-color: var(--ltp-purple-dark);
+    --bs-btn-disabled-color: var(--ltp-purple);
+    --bs-btn-disabled-border-color: var(--ltp-purple);
+    --bs-btn-focus-shadow-rgb: 52, 71, 137;
+}
+
+/* Form fields: purple focus ring and purple ticked checkboxes. */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--bs-primary-border-subtle);
+    box-shadow: 0 0 0 0.25rem var(--bs-focus-ring-color);
+}
+
+.form-check-input:checked {
+    background-color: var(--ltp-purple);
+    border-color: var(--ltp-purple);
+}
+
+/* Cards lift slightly off the light teal background. */
 .card {
-    border: 1px solid #999;
-    border-radius: 6px;
-    padding: 4px 16px;
-    margin: 12px 0;
-    max-width: 700px;
+    box-shadow: 0 0.125rem 0.5rem rgba(52, 71, 137, 0.08);
+}
+
+/* Calendar and table headers in the brand purple. */
+.table > thead th {
+    background-color: var(--ltp-purple);
+    color: #FFFFFF;
+    font-family: var(--ltp-font-display);
+    font-weight: 500;
+}
+
+/* Navbar (built in common.js): teal like the logo, with a coral stripe underneath.
+   Links are dark purple; the current page is a purple pill with white text. */
+.navbar.site-navbar {
+    background-color: var(--ltp-teal);
+    border-bottom: 5px solid var(--ltp-coral);
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    --bs-navbar-color: var(--ltp-purple-dark);
+    --bs-navbar-hover-color: var(--ltp-purple-dark);
+    --bs-navbar-active-color: #FFFFFF;
+    --bs-navbar-toggler-border-color: var(--ltp-purple-dark);
+    --bs-navbar-nav-link-padding-x: 0.9rem;
+}
+
+.site-navbar .navbar-nav {
+    --bs-nav-link-padding-x: 0.9rem;  /* pill padding on small screens too */
+}
+
+.site-navbar .navbar-brand img {
+    height: 3.5rem;
+    width: auto;
+}
+
+.site-navbar .nav-link {
+    font-weight: 600;
+    font-size: 1.05rem;
+    border-radius: 2rem;
+}
+
+.site-navbar .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.35);
+}
+
+.site-navbar .nav-link.active {
+    background-color: var(--ltp-purple);
+}
+
+/* Calendar grid: seven equal columns, and days tall enough to hold a few items. */
+.calendar-table {
+    table-layout: fixed;
+    min-width: 560px; /* below this the table scrolls sideways instead of squashing */
+}
+
+.calendar-table td {
+    height: 6.5rem;
+    vertical-align: top;
+    padding: 0.25rem;
+}
+
+/* Outreach scripts keep their line breaks. */
+.script-text {
+    white-space: pre-wrap;
 }

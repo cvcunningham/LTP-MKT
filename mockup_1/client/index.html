@@ -2,73 +2,91 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Submit a Content Idea</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ideas Form</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="resources/styles/style.css">
 </head>
-<body>
-    <h1>Submit a Content Idea</h1>
-    <p>
-        <b>Submit an idea</b> |
-        <a href="bank.html">Idea Bank</a> |
-        <a href="tracker.html">Production Tracker</a>
-    </p>
+<body data-page="form">
+    <nav id="site-nav"></nav>
 
-    <form id="idea-form">
-        <p>
-            <label for="name">Your name</label><br>
-            <input type="text" id="name" name="name">
-        </p>
-        <p>
-            <label for="title">Content name (required)</label><br>
-            <input type="text" id="title" name="title" required>
-        </p>
-        <p>
-            <label for="campus">Campus</label><br>
-            <input type="text" id="campus" name="campus">
-        </p>
-        <p>
-            <label for="contentType">Content type (the format, e.g. Reel, Photo, Carousel, Story)</label><br>
-            <input type="text" id="contentType" name="contentType">
-        </p>
-        <p>
-            <label for="contentCategory">Content category (the topic, e.g. Food, Events, Staff spotlight)</label><br>
-            <input type="text" id="contentCategory" name="contentCategory">
-        </p>
-        <p>
-            <label for="concept">Concept</label><br>
-            <textarea id="concept" name="concept" rows="4" cols="50"></textarea>
-        </p>
-        <p>
-            <label for="whyItCouldWork">Why it could work</label><br>
-            <textarea id="whyItCouldWork" name="whyItCouldWork" rows="3" cols="50"></textarea>
-        </p>
-        <p>
-            <label for="caption">Caption idea</label><br>
-            <textarea id="caption" name="caption" rows="3" cols="50"></textarea>
-        </p>
-        <fieldset>
-            <legend>Platform</legend>
-            <label><input type="checkbox" name="platforms" value="Instagram"> Instagram</label>
-            <label><input type="checkbox" name="platforms" value="TikTok"> TikTok</label>
-        </fieldset>
-        <p>
-            <label for="hashtags">Hashtags</label><br>
-            <input type="text" id="hashtags" name="hashtags" placeholder="#summer #recipes">
-        </p>
-        <fieldset>
-            <legend>Photo and video links (optional)</legend>
-            <p>
-                Put your photo or video in the company OneDrive folder, click <b>Share</b>, then
-                <b>Copy link</b>, and paste the link here. Links must start with https://
-            </p>
-            <div id="links"></div>
-            <button type="button" id="add-link">+ Add a link</button>
-        </fieldset>
-        <p><button type="submit" id="submit-button">Submit idea</button></p>
-    </form>
+    <main class="container mb-5">
+      <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <h1 class="mb-1">Ideas Form</h1>
+        <p class="text-body-secondary">Have an idea for our socials? Fill this in and the Marketing Chair or an Executive will review it.</p>
 
-    <p id="message"></p>
+        <form id="idea-form" novalidate>
+            <div class="mb-3">
+                <label for="submittedBy" class="form-label">Your name (required)</label>
+                <div id="name-field"><select class="form-select" disabled><option>Loading names...</option></select></div>
+                <div class="form-text">Not on the list? Ask the Marketing Chair to add you to employees.csv.</div>
+            </div>
+            <div class="mb-3">
+                <label for="title" class="form-label">Content name (required)</label>
+                <input type="text" class="form-control" id="title" name="title" required>
+            </div>
+            <div id="campus-field"></div>
+            <div class="row">
+                <div class="col-sm-6 mb-3">
+                    <label for="contentType" class="form-label">Content type</label>
+                    <input type="text" class="form-control" id="contentType" name="contentType">
+                    <div class="form-text">The format, e.g. Reel, Photo, Carousel, Story</div>
+                </div>
+                <div class="col-sm-6 mb-3">
+                    <label for="contentCategory" class="form-label">Content category</label>
+                    <input type="text" class="form-control" id="contentCategory" name="contentCategory">
+                    <div class="form-text">The topic, e.g. Food, Events, Staff spotlight</div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="concept" class="form-label">Concept</label>
+                <textarea class="form-control" id="concept" name="concept" rows="4"></textarea>
+            </div>
+            <div class="mb-3">
+                <label for="whyItCouldWork" class="form-label">Why it could work</label>
+                <textarea class="form-control" id="whyItCouldWork" name="whyItCouldWork" rows="3"></textarea>
+            </div>
+            <div class="mb-3">
+                <label for="caption" class="form-label">Caption idea</label>
+                <textarea class="form-control" id="caption" name="caption" rows="3"></textarea>
+            </div>
+            <fieldset class="mb-3">
+                <legend class="form-label fs-6">Platform</legend>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" name="platforms" value="Instagram" id="platform-instagram">
+                    <label class="form-check-label" for="platform-instagram">Instagram</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" name="platforms" value="TikTok" id="platform-tiktok">
+                    <label class="form-check-label" for="platform-tiktok">TikTok</label>
+                </div>
+            </fieldset>
+            <div class="mb-3">
+                <label for="hashtags" class="form-label">Hashtags</label>
+                <input type="text" class="form-control" id="hashtags" name="hashtags" placeholder="#summer #recipes">
+            </div>
+            <fieldset class="card card-body mb-3">
+                <legend class="fs-6 fw-semibold">Photo and video links (optional)</legend>
+                <p class="small text-body-secondary">
+                    Put your photo or video in the company OneDrive folder, click <b>Share</b>, then
+                    <b>Copy link</b>, and paste the link here. Links must start with https://
+                </p>
+                <div id="links"></div>
+                <div><button type="button" class="btn btn-outline-secondary btn-sm" id="add-link">+ Add a link</button></div>
+            </fieldset>
+            <button type="submit" class="btn btn-primary" id="submit-button">Submit idea</button>
+        </form>
 
+        <div id="message" class="mt-3" role="status"></div>
+      </div>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="resources/scripts/common.js"></script>
     <script src="resources/scripts/submit.js"></script>
 </body>

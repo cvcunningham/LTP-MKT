@@ -10,7 +10,8 @@ public class Idea
     public const int RejectedDaysKept = 30;
 
     public int Id { get; set; }
-    public string Name { get; set; } = "";  // who submitted it
+    public int? SubmittedById { get; set; } // who submitted it (employees.Id)
+    public string Name { get; set; } = "";   // typed name, only on ideas from before employees.csv
     public string Title { get; set; } = ""; // content name
     public string Campus { get; set; } = "";
     public string ContentType { get; set; } = "";     // the format, e.g. Reel, Photo, Carousel

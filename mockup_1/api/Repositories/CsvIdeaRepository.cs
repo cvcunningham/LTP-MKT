@@ -8,10 +8,11 @@ public class CsvIdeaRepository : IIdeaRepository
     // New columns are added at the end, so CsvFile.EnsureSchema can upgrade older files.
     private const string IdeasHeader =
         "Id,Name,Title,Concept,Caption,Platforms,Hashtags,CreatedAt,ReviewStatus,DenialReason,ReviewedAt," +
-        "Campus,ContentType,ContentCategory,WhyItCouldWork";
+        "Campus,ContentType,ContentCategory,WhyItCouldWork,SubmittedById";
     private const string LinksHeader = "Id,IdeaId,Type,Label,Url,DriveItemId";
     private const string ProductionHeader =
-        "Id,IdeaId,Filmer,Editor,Reviewer,Poster,TargetPostDate,Status,UpdatedAt";
+        "Id,IdeaId,Filmer,Editor,Reviewer,Poster,TargetPostDate,Status,UpdatedAt," +
+        "FilmerId,EditorId,ReviewerId,PosterId";
 
     private readonly string _ideasPath;
     private readonly string _linksPath;
@@ -154,10 +155,12 @@ public class CsvIdeaRepository : IIdeaRepository
             if (item == null)
                 return false;
 
-            item.Filmer = changes.Filmer;
-            item.Editor = changes.Editor;
-            item.Reviewer = changes.Reviewer;
-            item.Poster = changes.Poster;
+            item.FilmerId = changes.FilmerId;
+            item.EditorId = changes.EditorId;
+            item.ReviewerId = changes.ReviewerId;
+            item.PosterId = changes.PosterId;
+            // The dropdowns replace any names typed before employees.csv existed.
+            item.Filmer = item.Editor = item.Reviewer = item.Poster = "";
             item.TargetPostDate = changes.TargetPostDate;
             item.Status = changes.Status;
             item.UpdatedAt = DateTime.UtcNow;
@@ -231,7 +234,7 @@ public class CsvIdeaRepository : IIdeaRepository
         i.Id.ToString(), i.Name, i.Title, i.Concept, i.Caption, i.Platforms, i.Hashtags,
         i.CreatedAt.ToString("o"), i.ReviewStatus, i.DenialReason,
         i.ReviewedAt?.ToString("o") ?? "",
-        i.Campus, i.ContentType, i.ContentCategory, i.WhyItCouldWork
+        i.Campus, i.ContentType, i.ContentCategory, i.WhyItCouldWork, FormatId(i.SubmittedById)
     };
 
     private static string[] ToRow(IdeaLink l) => new[]
@@ -242,8 +245,13 @@ public class CsvIdeaRepository : IIdeaRepository
     private static string[] ToRow(ProductionItem p) => new[]
     {
         p.Id.ToString(), p.IdeaId.ToString(), p.Filmer, p.Editor, p.Reviewer, p.Poster,
-        p.TargetPostDate?.ToString("yyyy-MM-dd") ?? "", p.Status, p.UpdatedAt.ToString("o")
+        p.TargetPostDate?.ToString("yyyy-MM-dd") ?? "", p.Status, p.UpdatedAt.ToString("o"),
+        FormatId(p.FilmerId), FormatId(p.EditorId), FormatId(p.ReviewerId), FormatId(p.PosterId)
     };
+
+    // An optional id (e.g. who submitted an idea): "" when there's none.
+    private static string FormatId(int? id) => id?.ToString() ?? "";
+    private static int? ParseId(string value) => int.TryParse(value, out var id) ? id : null;
 
     private List<Idea> ReadIdeas() =>
         CsvFile.ReadRows(_ideasPath).Select(r => new Idea
@@ -262,7 +270,8 @@ public class CsvIdeaRepository : IIdeaRepository
             Campus = r[11],
             ContentType = r[12],
             ContentCategory = r[13],
-            WhyItCouldWork = r[14]
+            WhyItCouldWork = r[14],
+            SubmittedById = ParseId(r[15])
         }).ToList();
 
     private List<IdeaLink> ReadLinks() =>
@@ -286,8 +295,12 @@ public class CsvIdeaRepository : IIdeaRepository
             Reviewer = r[4],
             Poster = r[5],
             TargetPostDate = r[6] == "" ? null : DateOnly.ParseExact(r[6], "yyyy-MM-dd", CultureInfo.InvariantCulture),
-            Status = r[7],
-            UpdatedAt = ParseDate(r[8])
+            Status = ProductionItem.UpgradeStatus(r[7]),
+            UpdatedAt = ParseDate(r[8]),
+            FilmerId = ParseId(r[9]),
+            EditorId = ParseId(r[10]),
+            ReviewerId = ParseId(r[11]),
+            PosterId = ParseId(r[12])
         }).ToList();
 
     private static DateTime ParseDate(string value) =>

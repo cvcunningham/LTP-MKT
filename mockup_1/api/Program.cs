@@ -10,6 +10,8 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
 builder.Services.AddSingleton<IIdeaRepository, CsvIdeaRepository>();
+builder.Services.AddSingleton<IEmployeeRepository, CsvEmployeeRepository>();
+builder.Services.AddSingleton<IPromoRepository, CsvPromoRepository>();
 
 // Uploaded photos/videos go to the company's SharePoint/OneDrive folder.
 builder.Services.AddHttpClient();

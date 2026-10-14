@@ -26,12 +26,15 @@ public class IdeasController : ControllerBase
     };
 
     private readonly IIdeaRepository _repo;
+    private readonly IEmployeeRepository _employees;
     private readonly IFileStorage _storage;
     private readonly ILogger<IdeasController> _logger;
 
-    public IdeasController(IIdeaRepository repo, IFileStorage storage, ILogger<IdeasController> logger)
+    public IdeasController(
+        IIdeaRepository repo, IEmployeeRepository employees, IFileStorage storage, ILogger<IdeasController> logger)
     {
         _repo = repo;
+        _employees = employees;
         _storage = storage;
         _logger = logger;
     }
@@ -46,9 +49,10 @@ public class IdeasController : ControllerBase
         await _repo.DeleteRejectedBeforeAsync(DateTime.UtcNow.AddDays(-Idea.RejectedDaysKept));
 
         var ideas = await _repo.GetAllAsync();
+        var employees = await EmployeesById();
         return ideas
             .Where(i => i.ReviewStatus == Idea.Pending || i.ReviewStatus == Idea.Rejected)
-            .Select(DtoMapping.ToDto)
+            .Select(i => DtoMapping.ToDto(i, employees))
             .ToList();
     }
 
@@ -70,6 +74,12 @@ public class IdeasController : ControllerBase
             return BadRequest(new { errors = new[] { "The form didn't arrive correctly. Please try again." } });
 
         var errors = new List<string>();
+
+        var employees = await EmployeesById();
+        if (request.SubmittedById is not int submittedById)
+            errors.Add("Please choose your name.");
+        else if (!employees.ContainsKey(submittedById))
+            errors.Add("Your name isn't on the employee list anymore. Please refresh the page and choose it again.");
 
         if (string.IsNullOrWhiteSpace(request.Title))
             errors.Add("Please give your idea a title.");
@@ -109,7 +119,7 @@ public class IdeasController : ControllerBase
 
         var idea = new Idea
         {
-            Name = request.Name?.Trim() ?? "",
+            SubmittedById = request.SubmittedById,
             Title = request.Title.Trim(),
             Campus = request.Campus?.Trim() ?? "",
             ContentType = request.ContentType?.Trim() ?? "",
@@ -146,7 +156,7 @@ public class IdeasController : ControllerBase
             }
 
             var saved = await _repo.AddAsync(idea, links);
-            return Ok(DtoMapping.ToDto(saved));
+            return Ok(DtoMapping.ToDto(saved, employees));
         }
         catch (Exception ex)
         {
@@ -214,6 +224,9 @@ public class IdeasController : ControllerBase
             catch (Exception ex) { _logger.LogWarning(ex, "Couldn't remove leftover OneDrive file {FileId}", file.Id); }
         }
     }
+
+    private async Task<Dictionary<int, Employee>> EmployeesById() =>
+        (await _employees.GetAllAsync()).ToDictionary(e => e.Id);
 
     private static bool IsHttpsUrl(string url) =>
         Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;

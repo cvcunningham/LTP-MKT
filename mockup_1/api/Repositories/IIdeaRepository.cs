@@ -29,7 +29,7 @@ public interface IIdeaRepository
     // Production Tracker items, each with its idea (and the idea's links) filled in.
     Task<List<ProductionItem>> GetProductionAsync();
 
-    // Saves the production details (Filmer, Editor, Reviewer, Poster, TargetPostDate, Status)
+    // Saves the production details (FilmerId, EditorId, ReviewerId, PosterId, TargetPostDate, Status)
     // of the item with item.Id. False if it doesn't exist.
     Task<bool> UpdateProductionAsync(ProductionItem item);
 
