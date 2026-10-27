@@ -6,13 +6,24 @@ public class Promo
 {
     public static readonly string[] PartnerTypes = { "Sorority", "Student org", "Business" };
 
+    // A promo is always at one campus (it picks the ordering app for [APP] in the scripts).
+    public static readonly string[] Campuses = { "Alabama", "Ole Miss" };
+
     // The Status choices, in order. Cancelled can be chosen at any point.
-    public static readonly string[] Statuses = { "Reaching out", "Confirmed", "Completed", "Cancelled" };
+    // Only Scheduled and Completed promos show on the promo calendar.
+    public static readonly string[] Statuses = { "Reaching out", "Scheduled", "Completed", "Cancelled" };
+
+    // Older status names, and what they mean now (applied when promos.csv is read).
+    public static string UpgradeStatus(string status) => status switch
+    {
+        "Confirmed" => "Scheduled",
+        _ => status
+    };
 
     public int Id { get; set; }
     public string Name { get; set; } = "";        // the partner, e.g. "Alpha Chi Omega"
     public string PartnerType { get; set; } = ""; // Sorority, Student org or Business
-    public string Campus { get; set; } = "";
+    public string Campus { get; set; } = "";      // one of Campuses
     public DateOnly Date { get; set; }
     public string PromoCode { get; set; } = "";   // the code customers enter in the ordering app
     public string Status { get; set; } = Statuses[0];

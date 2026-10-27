@@ -5,16 +5,12 @@ namespace api.Models;
 // (the upload button is hidden on the form for now, so Uploads is normally empty).
 public class IdeaRequest
 {
-    public int? SubmittedById { get; set; } // who submitted it (employees.Id), from the "Your name" dropdown
     public string Title { get; set; } = "";
     public string? Campus { get; set; }
     public string? ContentType { get; set; }
     public string? ContentCategory { get; set; }
-    public string? Concept { get; set; }
-    public string? WhyItCouldWork { get; set; }
+    public string? Concept { get; set; } // the concept and why it could work
     public string? Caption { get; set; }
-    public List<string> Platforms { get; set; } = new();
-    public string? Hashtags { get; set; }
     public List<LinkRequest> Links { get; set; } = new();
     public List<UploadRequest> Uploads { get; set; } = new();
 }
@@ -41,6 +37,38 @@ public class ProductionUpdateRequest
     public int? PosterId { get; set; }
     public DateOnly? TargetPostDate { get; set; } // "2026-11-01", or null for no date
     public string Status { get; set; } = "";
+}
+
+// The login form (JSON).
+public class LoginRequest
+{
+    public int Id { get; set; }
+    public string? Password { get; set; }
+}
+
+// Change your own password (JSON).
+public class ChangePasswordRequest
+{
+    public string? CurrentPassword { get; set; }
+    public string? NewPassword { get; set; }
+}
+
+// What logging in sends back: the token to send with every request, and who you are.
+public record LoginDto(string Token, MeDto Me);
+
+// The logged-in employee and what they may do (Auth/Permissions.cs), so the page can show the right
+// tabs and buttons. The API checks the same permissions on every request.
+public record MeDto(EmployeeDto Employee, string[] Permissions);
+
+// What the Intern Directory's Add / Save sends (JSON). Id is the employee's (new) id.
+public class EmployeeRequest
+{
+    public int? Id { get; set; }
+    public string? Name { get; set; }
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? Campus { get; set; }
+    public string? Semester { get; set; }
 }
 
 // What the Promo List's Add / Save sends (JSON).
@@ -77,10 +105,7 @@ public record IdeaDto(
     string ContentType,
     string ContentCategory,
     string Concept,
-    string WhyItCouldWork,
     string Caption,
-    List<string> Platforms,
-    string Hashtags,
     DateTime CreatedAt,
     string ReviewStatus,
     DateTime? ReviewedAt,
@@ -105,7 +130,7 @@ public record ProductionDto(
     IdeaDto Idea);
 
 // What GET /api/employees sends back (JSON).
-public record EmployeeDto(int Id, string Name, string Email, string Phone, string Campus, int? Semester, string Role);
+public record EmployeeDto(int Id, string Name, string Email, string Phone, string Campus, string Semester, string Role);
 
 // What GET /api/promos sends back (JSON).
 public record PromoDto(

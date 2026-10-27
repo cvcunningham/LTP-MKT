@@ -9,18 +9,19 @@ public class Idea
 
     public const int RejectedDaysKept = 30;
 
+    // The choices on the Ideas Form (the API rejects anything else).
+    public static readonly string[] Campuses = { "Alabama", "Ole Miss", "Either" };
+    public static readonly string[] ContentCategories = { "Food/Drink", "Customer/Student Life", "Employee", "Other" };
+
     public int Id { get; set; }
     public int? SubmittedById { get; set; } // who submitted it (employees.Id)
     public string Name { get; set; } = "";   // typed name, only on ideas from before employees.csv
     public string Title { get; set; } = ""; // content name
     public string Campus { get; set; } = "";
     public string ContentType { get; set; } = "";     // the format, e.g. Reel, Photo, Carousel
-    public string ContentCategory { get; set; } = ""; // the topic, e.g. Food, Events
-    public string Concept { get; set; } = "";
-    public string WhyItCouldWork { get; set; } = "";
+    public string ContentCategory { get; set; } = ""; // the topic: one of ContentCategories
+    public string Concept { get; set; } = "";         // the concept and why it could work
     public string Caption { get; set; } = "";
-    public string Platforms { get; set; } = ""; // e.g. "Instagram;TikTok"
-    public string Hashtags { get; set; } = "";
     public DateTime CreatedAt { get; set; }
 
     public string ReviewStatus { get; set; } = Pending; // Pending -> Approved or Rejected (final)

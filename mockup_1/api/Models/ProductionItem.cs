@@ -5,11 +5,13 @@ namespace api.Models;
 // links come from the idea (by IdeaId); this row only holds the production details.
 public class ProductionItem
 {
+    public const string Scheduled = "Scheduled"; // needs a target post date
     public const string Completed = "Completed";
 
     // The Status choices, in order. A newly approved idea starts at the first one.
+    // Only Scheduled and Completed items show on the Content Calendar.
     public static readonly string[] Statuses =
-        { "Needs filming", "Needs editing", "Needs final review", "Scheduled", Completed };
+        { "Needs filming", "Needs editing", "Needs final review", Scheduled, Completed };
 
     // Older status names, and what they mean now (applied when production.csv is read).
     public static string UpgradeStatus(string status) => status switch

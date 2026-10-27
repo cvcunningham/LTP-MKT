@@ -6,8 +6,9 @@ namespace api.Repositories;
 // in quotes, so captions and descriptions can contain any text.
 public static class CsvFile
 {
-    // Creates the file if missing. If the file has an older header (fewer columns),
-    // rewrites it with the new header and fills the new columns with "".
+    // Creates the file if missing. If the file has an older header, rewrites it with the new one,
+    // matching columns by name: columns that are still used keep their values, new columns are
+    // filled with "", and columns that were removed are dropped.
     public static void EnsureSchema(string path, string header)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -21,10 +22,11 @@ public static class CsvFile
         if (rows.Count > 0 && string.Join(",", rows[0]) == header)
             return;
 
-        var columnCount = header.Split(',').Length;
+        var oldColumns = rows.Count > 0 ? rows[0].ToList() : new List<string>();
+        var positions = header.Split(',').Select(name => oldColumns.IndexOf(name)).ToArray();
         var upgraded = rows.Skip(1)
             .Where(r => !IsBlank(r))
-            .Select(r => r.Concat(Enumerable.Repeat("", Math.Max(0, columnCount - r.Length))).ToArray());
+            .Select(r => positions.Select(p => p >= 0 && p < r.Length ? r[p] : "").ToArray());
         WriteAll(path, header, upgraded);
     }
 

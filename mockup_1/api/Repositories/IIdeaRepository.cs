@@ -35,4 +35,12 @@ public interface IIdeaRepository
 
     // Permanently removes the item together with its idea and links. False if it doesn't exist.
     Task<bool> DeleteProductionAsync(int id);
+
+    // Every employee id used by an idea (SubmittedById) or a tracker job, including ids of
+    // employees who have since been deleted.
+    Task<HashSet<int>> GetEmployeeIdsInUseAsync();
+
+    // When an employee's id is changed in the Intern Directory: moves their ideas and tracker jobs
+    // from oldId to newId. In MySQL: ON UPDATE CASCADE on the foreign keys does this.
+    Task ReplaceEmployeeIdAsync(int oldId, int newId);
 }

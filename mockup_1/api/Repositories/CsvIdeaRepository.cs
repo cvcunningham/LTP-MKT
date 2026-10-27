@@ -5,10 +5,10 @@ namespace api.Repositories;
 
 public class CsvIdeaRepository : IIdeaRepository
 {
-    // New columns are added at the end, so CsvFile.EnsureSchema can upgrade older files.
+    // CsvFile.EnsureSchema upgrades older files to these headers (matching columns by name).
     private const string IdeasHeader =
-        "Id,Name,Title,Concept,Caption,Platforms,Hashtags,CreatedAt,ReviewStatus,DenialReason,ReviewedAt," +
-        "Campus,ContentType,ContentCategory,WhyItCouldWork,SubmittedById";
+        "Id,Name,Title,Concept,Caption,CreatedAt,ReviewStatus,DenialReason,ReviewedAt," +
+        "Campus,ContentType,ContentCategory,SubmittedById";
     private const string LinksHeader = "Id,IdeaId,Type,Label,Url,DriveItemId";
     private const string ProductionHeader =
         "Id,IdeaId,Filmer,Editor,Reviewer,Poster,TargetPostDate,Status,UpdatedAt," +
@@ -185,6 +185,42 @@ public class CsvIdeaRepository : IIdeaRepository
         finally { _lock.Release(); }
     }
 
+    public async Task<HashSet<int>> GetEmployeeIdsInUseAsync()
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            var ids = ReadIdeas().Select(i => i.SubmittedById)
+                .Concat(ReadProduction().SelectMany(p => new[] { p.FilmerId, p.EditorId, p.ReviewerId, p.PosterId }));
+            return ids.OfType<int>().ToHashSet();
+        }
+        finally { _lock.Release(); }
+    }
+
+    public async Task ReplaceEmployeeIdAsync(int oldId, int newId)
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            int? Swap(int? id) => id == oldId ? newId : id;
+
+            var ideas = ReadIdeas();
+            ideas.ForEach(i => i.SubmittedById = Swap(i.SubmittedById));
+            CsvFile.WriteAll(_ideasPath, IdeasHeader, ideas.Select(ToRow));
+
+            var production = ReadProduction();
+            production.ForEach(p =>
+            {
+                p.FilmerId = Swap(p.FilmerId);
+                p.EditorId = Swap(p.EditorId);
+                p.ReviewerId = Swap(p.ReviewerId);
+                p.PosterId = Swap(p.PosterId);
+            });
+            CsvFile.WriteAll(_productionPath, ProductionHeader, production.Select(ToRow));
+        }
+        finally { _lock.Release(); }
+    }
+
     // Sets a Pending idea to Approved or Rejected. Must be called while holding the lock.
     private bool Decide(int id, string status)
     {
@@ -231,10 +267,10 @@ public class CsvIdeaRepository : IIdeaRepository
 
     private static string[] ToRow(Idea i) => new[]
     {
-        i.Id.ToString(), i.Name, i.Title, i.Concept, i.Caption, i.Platforms, i.Hashtags,
+        i.Id.ToString(), i.Name, i.Title, i.Concept, i.Caption,
         i.CreatedAt.ToString("o"), i.ReviewStatus, i.DenialReason,
         i.ReviewedAt?.ToString("o") ?? "",
-        i.Campus, i.ContentType, i.ContentCategory, i.WhyItCouldWork, FormatId(i.SubmittedById)
+        i.Campus, i.ContentType, i.ContentCategory, FormatId(i.SubmittedById)
     };
 
     private static string[] ToRow(IdeaLink l) => new[]
@@ -261,17 +297,14 @@ public class CsvIdeaRepository : IIdeaRepository
             Title = r[2],
             Concept = r[3],
             Caption = r[4],
-            Platforms = r[5],
-            Hashtags = r[6],
-            CreatedAt = ParseDate(r[7]),
-            ReviewStatus = r[8] == "" ? Idea.Pending : r[8],
-            DenialReason = r[9],
-            ReviewedAt = r[10] == "" ? null : ParseDate(r[10]),
-            Campus = r[11],
-            ContentType = r[12],
-            ContentCategory = r[13],
-            WhyItCouldWork = r[14],
-            SubmittedById = ParseId(r[15])
+            CreatedAt = ParseDate(r[5]),
+            ReviewStatus = r[6] == "" ? Idea.Pending : r[6],
+            DenialReason = r[7],
+            ReviewedAt = r[8] == "" ? null : ParseDate(r[8]),
+            Campus = r[9],
+            ContentType = r[10],
+            ContentCategory = r[11],
+            SubmittedById = ParseId(r[12])
         }).ToList();
 
     private List<IdeaLink> ReadLinks() =>

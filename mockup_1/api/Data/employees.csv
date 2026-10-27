@@ -1,4 +1,12 @@
-Id,Name,Email,Phone,Campus,Semester,Role
-1,Caroline,,,Alabama,,Member
-2,Ryan,,,Alabama,,Member
-3,Haley,,,Alabama,,Member
+Id,Name,Email,Phone,Campus,Semester,Role,PasswordHash
+1,Haley King,,,Alabama,7-8,Lead,
+2,Ryder diTargiani,,,Ole Miss,1-2,,
+3,Savannah Ross,,,Ole Miss,1-2,,
+4,Peyton Stevenson,,,Ole Miss,1-2,,
+5,Sophia Peña,,,Ole Miss,1-2,,
+6,Joanna House,,,Alabama,1-2,,
+7,Graycie Glenn,,,Ole Miss,1-2,,
+8,Mackenzie Weston,,,Ole Miss,3-4,,
+9,Jeorgia Luger,,,Alabama,3-4,,
+10,Leigh Powell,,,Ole Miss,3-4,,
+11,Dacey Leonard,,,Ole Miss,7-8,Lead,

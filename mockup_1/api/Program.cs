@@ -1,3 +1,4 @@
+using api.Auth;
 using api.Repositories;
 using api.Storage;
 
@@ -12,6 +13,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton<IIdeaRepository, CsvIdeaRepository>();
 builder.Services.AddSingleton<IEmployeeRepository, CsvEmployeeRepository>();
 builder.Services.AddSingleton<IPromoRepository, CsvPromoRepository>();
+
+// Who is logged in (in memory; restarting the API logs everyone out).
+builder.Services.AddSingleton<SessionStore>();
 
 // Uploaded photos/videos go to the company's SharePoint/OneDrive folder.
 builder.Services.AddHttpClient();

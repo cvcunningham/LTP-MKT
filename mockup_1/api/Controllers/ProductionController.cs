@@ -1,3 +1,4 @@
+using api.Auth;
 using api.Models;
 using api.Repositories;
 using Microsoft.AspNetCore.Mvc;
@@ -25,12 +26,15 @@ public class ProductionController : ControllerBase
 
     // GET /api/production?view=InProgress   (everything not Completed yet; default)
     // GET /api/production?view=Completed
-    // GET /api/production?view=All          (the Content Calendar)
+    // GET /api/production?view=All          (the Content Calendar, which everyone can see)
     [HttpGet]
+    [RequirePermission(Permissions.ViewContentCalendar)]
     public async Task<ActionResult<List<ProductionDto>>> GetAll([FromQuery] string view = InProgressView)
     {
         if (view != InProgressView && view != CompletedView && view != AllView)
             return BadRequest(new { errors = new[] { "View must be InProgress, Completed or All." } });
+        if (view != AllView && !Permissions.Has(HttpContext.CurrentEmployee(), Permissions.ViewTracker))
+            return StatusCode(StatusCodes.Status403Forbidden, new { errors = new[] { "You don't have access to do that." } });
 
         var items = await _repo.GetProductionAsync();
         var employees = (await _employees.GetAllAsync()).ToDictionary(e => e.Id);
@@ -42,15 +46,19 @@ public class ProductionController : ControllerBase
 
     // GET /api/production/statuses   (the Status choices, in order, for the dropdown)
     [HttpGet("statuses")]
+    [RequirePermission(Permissions.ViewTracker)]
     public string[] GetStatuses() => ProductionItem.Statuses;
 
     // PUT /api/production/3   (JSON body: filmerId, editorId, reviewerId, posterId, targetPostDate, status)
     [HttpPut("{id}")]
+    [RequirePermission(Permissions.EditTracker)]
     public async Task<IActionResult> Update(int id, ProductionUpdateRequest request)
     {
         var errors = new List<string>();
         if (!ProductionItem.Statuses.Contains(request.Status))
             errors.Add("Please choose a status from the list.");
+        else if (request.Status == ProductionItem.Scheduled && request.TargetPostDate == null)
+            errors.Add("Please choose a target post date before setting the status to Scheduled.");
 
         var employees = (await _employees.GetAllAsync()).Select(e => e.Id).ToHashSet();
         var jobs = new (string Job, int? Id)[]
@@ -81,6 +89,7 @@ public class ProductionController : ControllerBase
 
     // DELETE /api/production/3   (permanent: removes the item, its idea and the idea's links)
     [HttpDelete("{id}")]
+    [RequirePermission(Permissions.DeleteTracker)]
     public async Task<IActionResult> Delete(int id) =>
         await _repo.DeleteProductionAsync(id) ? NoContent() : NotFound();
 }

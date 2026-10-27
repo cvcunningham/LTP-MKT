@@ -1,4 +1,5 @@
 Id,IdeaId,Filmer,Editor,Reviewer,Poster,TargetPostDate,Status,UpdatedAt,FilmerId,EditorId,ReviewerId,PosterId
-1,1,,,,,2026-10-15,Completed,2026-10-14T01:19:34.7363208Z,2,2,3,3
-3,3,,,,,2026-10-21,Needs filming,2026-10-15T20:00:56.8552949Z,,,,
-4,4,,,,,2026-10-21,Scheduled,2026-10-14T16:35:37.3073213Z,,,,
+1,1,,,,,2026-10-15,Completed,2026-10-14T01:19:34.7363208Z,,,1,1
+3,3,,,,,2026-10-20,Completed,2026-10-21T16:05:52.8778437Z,,,,
+4,4,,,,,2026-10-30,Scheduled,2026-10-27T04:15:57.0988984Z,,,1,1
+5,6,,,,,2026-10-29,Scheduled,2026-10-21T16:38:37.4522117Z,1,1,,

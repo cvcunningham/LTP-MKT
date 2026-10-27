@@ -5,7 +5,7 @@ namespace api.Repositories;
 
 public class CsvPromoRepository : IPromoRepository
 {
-    // New columns are added at the end, so CsvFile.EnsureSchema can upgrade older files.
+    // CsvFile.EnsureSchema upgrades older files to these headers (matching columns by name).
     private const string PromosHeader =
         "Id,Name,PartnerType,Campus,Date,PromoCode,Status,ContactName,ContactInfo,CreatedAt,UpdatedAt";
     private const string ScriptsHeader = "Id,PartnerType,Message,ForwardMessage,UpdatedAt";
@@ -130,7 +130,7 @@ public class CsvPromoRepository : IPromoRepository
             Campus = r[3],
             Date = DateOnly.ParseExact(r[4], "yyyy-MM-dd", CultureInfo.InvariantCulture),
             PromoCode = r[5],
-            Status = r[6],
+            Status = Promo.UpgradeStatus(r[6]),
             ContactName = r[7],
             ContactInfo = r[8],
             CreatedAt = ParseDate(r[9]),

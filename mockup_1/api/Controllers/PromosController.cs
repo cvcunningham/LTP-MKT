@@ -1,3 +1,4 @@
+using api.Auth;
 using api.Models;
 using api.Repositories;
 using Microsoft.AspNetCore.Mvc;
@@ -5,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace api.Controllers;
 
 // The Promo Calendar page: the Promo List (also shown on the promo calendar) and the outreach scripts.
-// For now anyone can add, edit and delete.
+// Semesters 3-4 can view; 5-6 can also add and edit; only 7-8 can delete (Auth/Permissions.cs).
 [ApiController]
 [Route("api/promos")]
 public class PromosController : ControllerBase
@@ -21,15 +22,18 @@ public class PromosController : ControllerBase
 
     // GET /api/promos   (every promo, soonest first; past promos stay until someone deletes them)
     [HttpGet]
+    [RequirePermission(Permissions.ViewPromos)]
     public async Task<List<PromoDto>> GetAll() =>
         (await _repo.GetAllAsync()).Select(DtoMapping.ToDto).ToList();
 
     // GET /api/promos/options   (the Partner type and Status choices, in order, for the dropdowns)
     [HttpGet("options")]
+    [RequirePermission(Permissions.ViewPromos)]
     public object GetOptions() => new { partnerTypes = Promo.PartnerTypes, statuses = Promo.Statuses };
 
     // POST /api/promos   (JSON body: name, partnerType, campus, date, promoCode, status, contactName, contactInfo)
     [HttpPost]
+    [RequirePermission(Permissions.EditPromos)]
     public async Task<ActionResult<PromoDto>> Create(PromoRequest request)
     {
         var (promo, errors) = Validate(request);
@@ -40,6 +44,7 @@ public class PromosController : ControllerBase
 
     // PUT /api/promos/3   (same body as POST)
     [HttpPut("{id}")]
+    [RequirePermission(Permissions.EditPromos)]
     public async Task<IActionResult> Update(int id, PromoRequest request)
     {
         var (promo, errors) = Validate(request);
@@ -51,16 +56,19 @@ public class PromosController : ControllerBase
 
     // DELETE /api/promos/3   (permanent)
     [HttpDelete("{id}")]
+    [RequirePermission(Permissions.DeletePromos)]
     public async Task<IActionResult> Delete(int id) =>
         await _repo.DeleteAsync(id) ? NoContent() : NotFound();
 
     // GET /api/promos/scripts   (one outreach script per partner type)
     [HttpGet("scripts")]
+    [RequirePermission(Permissions.ViewPromos)]
     public async Task<List<PromoScriptDto>> GetScripts() =>
         (await _repo.GetScriptsAsync()).Select(DtoMapping.ToDto).ToList();
 
     // PUT /api/promos/scripts/1   (JSON body: message, forwardMessage)
     [HttpPut("scripts/{id}")]
+    [RequirePermission(Permissions.EditPromos)]
     public async Task<IActionResult> UpdateScript(int id, ScriptUpdateRequest request)
     {
         var message = request.Message?.Trim() ?? "";
@@ -82,8 +90,8 @@ public class PromosController : ControllerBase
             errors.Add("Please enter the partner's name.");
         if (!Promo.PartnerTypes.Contains(request.PartnerType))
             errors.Add("Please choose a partner type: " + string.Join(", ", Promo.PartnerTypes) + ".");
-        if (string.IsNullOrWhiteSpace(request.Campus))
-            errors.Add("Please choose a campus.");
+        if (!Promo.Campuses.Contains(request.Campus))
+            errors.Add("Please choose a campus: " + string.Join(", ", Promo.Campuses) + ".");
         if (request.Date == null)
             errors.Add("Please choose the date of the promo.");
         if (!Promo.Statuses.Contains(request.Status))
@@ -93,7 +101,7 @@ public class PromosController : ControllerBase
         {
             Name = request.Name?.Trim() ?? "",
             PartnerType = request.PartnerType ?? "",
-            Campus = request.Campus?.Trim() ?? "",
+            Campus = request.Campus ?? "",
             Date = request.Date ?? default,
             PromoCode = request.PromoCode?.Trim() ?? "",
             Status = request.Status ?? "",

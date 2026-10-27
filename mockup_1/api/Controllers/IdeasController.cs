@@ -1,4 +1,5 @@
 using System.Text.Json;
+using api.Auth;
 using api.Models;
 using api.Repositories;
 using api.Storage;
@@ -10,7 +11,6 @@ namespace api.Controllers;
 [Route("api/ideas")]
 public class IdeasController : ControllerBase
 {
-    private static readonly string[] AllowedPlatforms = { "Instagram", "TikTok" };
     private static readonly string[] AllowedLinkTypes = { IdeaLink.Photo, IdeaLink.Video };
 
     // Uploads: up to 500 MB per file, and up to 2 GB for the whole submission.
@@ -42,6 +42,7 @@ public class IdeasController : ControllerBase
     // GET /api/ideas   (the Idea Bank: waiting for review + rejected.
     // Approved ideas are on the Production Tracker instead.)
     [HttpGet]
+    [RequirePermission(Permissions.ReviewIdeas)]
     public async Task<ActionResult<List<IdeaDto>>> GetAll()
     {
         // Rejected ideas are deleted automatically once they're old enough. Checking here,
@@ -59,7 +60,9 @@ public class IdeasController : ControllerBase
     // POST /api/ideas   (multipart form: "idea" = the idea as JSON, "files" = uploaded files)
     // Everything is checked first, then the files go to OneDrive, then the idea is saved.
     // If any step fails, nothing is saved, so the user can just try again.
+    // The idea is recorded as submitted by whoever is logged in.
     [HttpPost]
+    [RequirePermission(Permissions.SubmitIdeas)]
     [RequestSizeLimit(MaxSubmissionBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxSubmissionBytes)]
     public async Task<ActionResult<IdeaDto>> Create(
@@ -75,17 +78,14 @@ public class IdeasController : ControllerBase
 
         var errors = new List<string>();
 
-        var employees = await EmployeesById();
-        if (request.SubmittedById is not int submittedById)
-            errors.Add("Please choose your name.");
-        else if (!employees.ContainsKey(submittedById))
-            errors.Add("Your name isn't on the employee list anymore. Please refresh the page and choose it again.");
-
         if (string.IsNullOrWhiteSpace(request.Title))
             errors.Add("Please give your idea a title.");
 
-        if (request.Platforms.Any(p => !AllowedPlatforms.Contains(p)))
-            errors.Add("Platform must be Instagram or TikTok.");
+        if (!Idea.Campuses.Contains(request.Campus))
+            errors.Add("Please choose a campus: " + string.Join(", ", Idea.Campuses) + ".");
+
+        if (!Idea.ContentCategories.Contains(request.ContentCategory))
+            errors.Add("Please choose a content category: " + string.Join(", ", Idea.ContentCategories) + ".");
 
         for (var i = 0; i < request.Links.Count; i++)
         {
@@ -119,16 +119,13 @@ public class IdeasController : ControllerBase
 
         var idea = new Idea
         {
-            SubmittedById = request.SubmittedById,
+            SubmittedById = HttpContext.CurrentEmployee().Id,
             Title = request.Title.Trim(),
-            Campus = request.Campus?.Trim() ?? "",
+            Campus = request.Campus ?? "",
             ContentType = request.ContentType?.Trim() ?? "",
-            ContentCategory = request.ContentCategory?.Trim() ?? "",
+            ContentCategory = request.ContentCategory ?? "",
             Concept = request.Concept?.Trim() ?? "",
-            WhyItCouldWork = request.WhyItCouldWork?.Trim() ?? "",
             Caption = request.Caption?.Trim() ?? "",
-            Platforms = string.Join(";", request.Platforms),
-            Hashtags = request.Hashtags?.Trim() ?? "",
             CreatedAt = DateTime.UtcNow
         };
         var links = request.Links.Select(l => new IdeaLink
@@ -156,7 +153,7 @@ public class IdeasController : ControllerBase
             }
 
             var saved = await _repo.AddAsync(idea, links);
-            return Ok(DtoMapping.ToDto(saved, employees));
+            return Ok(DtoMapping.ToDto(saved, await EmployeesById()));
         }
         catch (Exception ex)
         {
@@ -172,6 +169,8 @@ public class IdeasController : ControllerBase
 
     // GET /api/ideas/files/7   (plays/shows an uploaded file by sending the browser to
     // a short-lived direct address from OneDrive)
+    // Not behind the login: <img>/<video> tags can't send the login token. Uploads are turned off;
+    // if they're turned back on, this needs its own check (e.g. a short-lived token in the address).
     [HttpGet("files/{linkId:int}")]
     public async Task<IActionResult> GetFile(int linkId, CancellationToken cancellationToken)
     {
@@ -192,15 +191,18 @@ public class IdeasController : ControllerBase
 
     // POST /api/ideas/5/approve   (moves it to the Production Tracker)
     [HttpPost("{id}/approve")]
+    [RequirePermission(Permissions.ReviewIdeas)]
     public async Task<IActionResult> Approve(int id) => await Decided(id, await _repo.ApproveAsync(id));
 
     // POST /api/ideas/5/reject   (no reason needed; deleted automatically after 30 days)
     [HttpPost("{id}/reject")]
+    [RequirePermission(Permissions.ReviewIdeas)]
     public async Task<IActionResult> Reject(int id) => await Decided(id, await _repo.RejectAsync(id));
 
     // DELETE /api/ideas/5   (permanent: removes the idea and its links; works for any status).
     // Uploaded files stay in the OneDrive folder.
     [HttpDelete("{id}")]
+    [RequirePermission(Permissions.ReviewIdeas)]
     public async Task<IActionResult> Delete(int id) =>
         await _repo.DeleteAsync(id) ? NoContent() : NotFound();
 
