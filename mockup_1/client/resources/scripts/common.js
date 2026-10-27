@@ -1,16 +1,37 @@
 // Shared by every page. Load this before the page's own script.
 const API_BASE = "http://localhost:5050/api";
 
-// The five pages, in navbar order. Each page's <body data-page="..."> says which one it is.
+// The six pages, in navbar order. They're all sections of index.html (<section data-page="...">);
+// the address after # says which one is shown, e.g. index.html#bank. See "Pages" below.
+// permission = what the logged-in person needs to see the page (see "Logged in" below).
 const PAGES = [
-    { id: "form", file: "index.html", title: "Ideas Form" },
-    { id: "bank", file: "bank.html", title: "Ideas Bank" },
-    { id: "tracker", file: "tracker.html", title: "Production Tracker" },
-    { id: "content-calendar", file: "content-calendar.html", title: "Content Calendar" },
-    { id: "promo-calendar", file: "promo-calendar.html", title: "Promo Calendar" }
+    { id: "form", title: "Ideas Form", permission: "SubmitIdeas" },
+    { id: "bank", title: "Ideas Bank", permission: "ReviewIdeas" },
+    { id: "tracker", title: "Production Tracker", permission: "ViewTracker" },
+    { id: "content-calendar", title: "Content Calendar", permission: "ViewContentCalendar" },
+    { id: "promo-calendar", title: "Promo Calendar", permission: "ViewPromos" },
+    { id: "directory", title: "Intern Directory", permission: "ManageDirectory" }
 ];
 
-// Campus choices. "Other" lets people type a campus that isn't listed yet.
+// ----- Logged in ----------------------------------------------------------------
+// auth.js logs people in and out. While logged in, `me` is { employee, permissions } from the API.
+// The permissions come from the semester (api/Auth/Permissions.cs):
+//   SubmitIdeas, ViewContentCalendar, ViewTracker, EditTracker, DeleteTracker,
+//   ViewPromos, EditPromos, DeletePromos, ReviewIdeas, ManageDirectory
+// The pages use can() to hide tabs and buttons; the API checks the same permissions on every request.
+let me = null;
+
+function can(permission) {
+    return me !== null && me.permissions.includes(permission);
+}
+
+// The login token, kept until the browser tab is closed (sessionStorage).
+function getToken() {
+    return sessionStorage.getItem("ltp-token");
+}
+
+// The campuses, in the order employee dropdowns group them. (The Ideas Form and promo pop-up list
+// their campus choices in index.html.)
 const CAMPUSES = ["Alabama", "Ole Miss"];
 
 // Bootstrap color classes for each status (used for badges, calendar items and the color keys).
@@ -23,29 +44,41 @@ const PRODUCTION_STATUS_CLASSES = {
 };
 const PROMO_STATUS_CLASSES = {
     "Reaching out": "text-bg-warning",
-    "Confirmed": "text-bg-primary",
+    "Scheduled": "text-bg-primary",
     "Completed": "text-bg-success",
     "Cancelled": "text-bg-secondary"
 };
 
 // ----- Navbar -----------------------------------------------------------------
 
-// Fills <nav id="site-nav"> with the Bootstrap navbar, highlighting the current page.
+// The Bootstrap breakpoint from which the navbar is one row (below it: the ☰ menu).
+const NAVBAR_BREAKPOINT = "xl";
+
+// Fills <nav id="site-nav"> with the Bootstrap navbar: the pages the logged-in person can see, and
+// their name with Change password / Log out. showCurrentPage() highlights the current page.
+// Before login it's just the logo.
 function renderNavbar() {
     const nav = document.getElementById("site-nav");
-    const current = document.body.dataset.page;
-    nav.className = "navbar navbar-expand-lg site-navbar mb-4";
+    nav.textContent = "";
+    // One row on wide screens: logo far left, page tabs, then name / Change password / Log out far
+    // right. Narrower than NAVBAR_BREAKPOINT, the tabs and buttons fold into the ☰ menu instead.
+    nav.className = "navbar navbar-expand-" + NAVBAR_BREAKPOINT + " site-navbar mb-4";
 
     const container = document.createElement("div");
-    container.className = "container";
+    container.className = "container-fluid px-3 px-lg-4"; // full width, so the ends reach the edges
 
     // The Low Tide Poke Company logo, linking back to the Ideas Form.
     const brand = addElement(container, "a");
     brand.className = "navbar-brand py-0";
-    brand.href = "index.html";
+    brand.href = "#form";
     const logo = addElement(brand, "img");
     logo.src = "resources/images/logo.png";
     logo.alt = "Low Tide Poke Company marketing";
+
+    if (!me) {
+        nav.appendChild(container);
+        return;
+    }
 
     // The ☰ button that shows the links on small screens.
     const toggler = document.createElement("button");
@@ -61,19 +94,76 @@ function renderNavbar() {
     collapse.className = "collapse navbar-collapse";
     collapse.id = "site-nav-links";
     const list = document.createElement("ul");
-    list.className = "navbar-nav";
-    PAGES.forEach((page) => {
+    list.className = "navbar-nav me-auto flex-nowrap";
+    PAGES.filter((page) => can(page.permission)).forEach((page) => {
         const item = document.createElement("li");
         item.className = "nav-item";
-        const link = addElement(item, "a", page.title);
-        link.className = "nav-link" + (page.id === current ? " active" : "");
-        link.href = page.file;
-        if (page.id === current) link.setAttribute("aria-current", "page");
+        const link = addElement(item, "a", page.title, "nav-link text-nowrap");
+        link.href = "#" + page.id;
+        link.dataset.page = page.id;
         list.appendChild(item);
     });
     collapse.appendChild(list);
+
+    // Who's logged in, with Change password and Log out (handled in auth.js).
+    const account = addElement(collapse, "div", null,
+        "d-flex flex-nowrap align-items-center gap-2 py-2 py-" + NAVBAR_BREAKPOINT + "-0 ms-" + NAVBAR_BREAKPOINT + "-3");
+    addElement(account, "span", me.employee.name, "fw-semibold text-nowrap");
+    const changePassword = addButton(account, "Change password", openPasswordForm, "btn-outline-primary");
+    changePassword.classList.replace("me-2", "text-nowrap");
+    const logOutButton = addButton(account, "Log out", logOut, "btn-primary");
+    logOutButton.classList.replace("me-2", "text-nowrap");
+
     container.appendChild(collapse);
     nav.appendChild(container);
+}
+
+// ----- Pages ---------------------------------------------------------------------------
+
+// Each page's script registers a function that loads its data. It runs every time that page is
+// shown, so e.g. an idea approved in the Ideas Bank is in the Production Tracker when you open it.
+const pageLoaders = {};
+function onPageShow(pageId, load) {
+    pageLoaders[pageId] = load;
+}
+
+// The page named after # ("#tracker?view=Completed&item=3" -> "tracker"). No # means the Ideas Form.
+function currentPageId() {
+    const id = location.hash.slice(1).split("?")[0];
+    return PAGES.some((page) => page.id === id) ? id : "form";
+}
+
+// The settings after the page name, e.g. pageParams().get("view") -> "Completed".
+function pageParams() {
+    return new URLSearchParams(location.hash.split("?")[1] || "");
+}
+
+// Shows the current page's section, hides the others, and loads its data. Before login, that's the
+// login page. A page the person isn't allowed to see goes to the Ideas Form instead (everyone has it).
+function showCurrentPage() {
+    let id = me ? currentPageId() : "login";
+    if (me && !can(PAGES.find((page) => page.id === id).permission)) {
+        id = "form";
+        history.replaceState(null, "", "#form");
+    }
+    document.querySelectorAll("section[data-page]").forEach((section) => {
+        section.classList.toggle("d-none", section.dataset.page !== id);
+    });
+    document.querySelectorAll("#site-nav .nav-link").forEach((link) => {
+        const current = link.dataset.page === id;
+        link.classList.toggle("active", current);
+        if (current) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+    });
+    document.title = id === "login" ? "Log in" : PAGES.find((page) => page.id === id).title;
+
+    // Close anything left open from the page before: a pop-up, or the menu on small screens.
+    document.querySelectorAll(".modal.show").forEach((modal) => bootstrap.Modal.getInstance(modal).hide());
+    const menu = document.getElementById("site-nav-links");
+    if (menu && menu.classList.contains("show")) bootstrap.Collapse.getOrCreateInstance(menu).hide();
+
+    window.scrollTo(0, 0);
+    if (pageLoaders[id]) pageLoaders[id]();
 }
 
 // ----- Building page elements ----------------------------------------------------
@@ -114,11 +204,15 @@ function addBadge(parent, text, classes) {
     return addElement(parent, "span", text, "badge " + (classes[text] || "text-bg-secondary"));
 }
 
+// Both calendars only show items with one of these statuses. Everything else stays in the
+// Production Tracker / Promo List until it's scheduled.
+const CALENDAR_STATUSES = ["Scheduled", "Completed"];
+
 // A row of status badges explaining the calendar colors.
-function renderColorKey(container, classes) {
+function renderColorKey(container, classes, statuses) {
     container.textContent = "";
     addElement(container, "span", "Key:", "me-2 text-body-secondary small");
-    Object.keys(classes).forEach((status) => addBadge(container, status, classes).classList.add("me-1"));
+    statuses.forEach((status) => addBadge(container, status, classes).classList.add("me-1"));
 }
 
 // "Label: value" on its own line, with the label in bold.
@@ -186,46 +280,6 @@ function selectedId(select) {
     return select.value === "" ? null : Number(select.value);
 }
 
-// The campus control: a dropdown (Alabama, Ole Miss, Other) plus a text box shown for Other.
-// Adds it to `parent` under a label, and returns { select, other, value() }.
-function addCampusField(parent, id, value = "", required = false) {
-    const wrapper = addElement(parent, "div", null, "mb-3");
-    const label = addElement(wrapper, "label", required ? "Campus (required)" : "Campus", "form-label");
-    label.htmlFor = id;
-
-    const select = addElement(wrapper, "select", null, "form-select");
-    select.id = id;
-    select.required = required;
-    addElement(select, "option", "Choose a campus").value = "";
-    CAMPUSES.forEach((campus) => (addElement(select, "option", campus).value = campus));
-    addElement(select, "option", "Other").value = "Other";
-
-    const other = addElement(wrapper, "input", null, "form-control mt-2");
-    other.type = "text";
-    other.placeholder = "Type the campus";
-    other.setAttribute("aria-label", "Other campus");
-
-    const field = {
-        select,
-        other,
-        value: () => (select.value === "Other" ? other.value.trim() : select.value),
-        set(campus) {
-            const listed = campus === "" || CAMPUSES.includes(campus);
-            select.value = listed ? campus : "Other";
-            other.value = listed ? "" : campus;
-            other.hidden = select.value !== "Other";
-            other.required = required && select.value === "Other";
-        }
-    };
-    select.addEventListener("change", () => {
-        other.hidden = select.value !== "Other";
-        other.required = required && select.value === "Other";
-        if (!other.hidden) other.focus();
-    });
-    field.set(value);
-    return field;
-}
-
 // ----- Links on ideas -----------------------------------------------------------------
 
 // The photo/video links of an idea, as a list.
@@ -284,14 +338,26 @@ function renderPreview(link, fileUrl) {
 
 // ----- Talking to the API ---------------------------------------------------------------
 
+// fetch() plus the login token. Every call to the API goes through this. If the API says the
+// login is no longer valid (401, e.g. the API was restarted), it goes back to the login page.
+async function apiFetch(url, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    const token = getToken();
+    if (token) headers.Authorization = "Bearer " + token;
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401 && me) sessionEnded();
+    return response;
+}
+
 // Gets JSON from the API. Throws an Error with a plain-language message if it fails.
 async function getJson(path) {
     let response;
     try {
-        response = await fetch(API_BASE + path);
+        response = await apiFetch(API_BASE + path);
     } catch (error) {
         throw new Error("Could not reach the API. Is it running?");
     }
+    if (response.status === 403) throw new Error("You don't have access to this.");
     if (!response.ok) throw new Error("The server had a problem loading this page. Please refresh.");
     return response.json();
 }
@@ -310,7 +376,7 @@ async function sendChange(url, method, body) {
         options.body = JSON.stringify(body);
     }
     try {
-        const response = await fetch(url, options);
+        const response = await apiFetch(url, options);
         if (response.ok) return true;
         const result = await response.json().catch(() => ({}));
         alert("That didn't work. " + formatErrors(result.errors));
@@ -327,4 +393,5 @@ function formatErrors(errors) {
     return Object.values(errors).flat().join(" ");
 }
 
-renderNavbar();
+// auth.js starts the site (checks the login, then shows the page) once every script has loaded.
+window.addEventListener("hashchange", showCurrentPage);

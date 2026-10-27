@@ -144,6 +144,20 @@ h1::after {
     background-color: var(--ltp-purple);
 }
 
+/* Laptop widths (Bootstrap's xl, 1200-1399px): slightly tighter so a Lead's six tabs, name and
+   buttons still fit on one row. Below 1200px the navbar becomes the ☰ menu (NAVBAR_BREAKPOINT). */
+@media (min-width: 1200px) and (max-width: 1399.98px) {
+    .site-navbar .navbar-nav {
+        --bs-navbar-nav-link-padding-x: 0.45rem;
+    }
+    .site-navbar .nav-link {
+        font-size: 0.95rem;
+    }
+    .site-navbar .navbar-brand img {
+        height: 3rem;
+    }
+}
+
 /* Calendar grid: seven equal columns, and days tall enough to hold a few items. */
 .calendar-table {
     table-layout: fixed;

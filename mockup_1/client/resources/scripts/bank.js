@@ -37,8 +37,7 @@ function renderCard(idea) {
     addElement(body, "p", `Submitted by ${idea.name || "Anonymous"} on ${formatDateTime(idea.createdAt)}`, "card-subtitle mb-3 text-body-secondary small");
     addDetail(body, "Campus", idea.campus);
     addDetail(body, "Content category", idea.contentCategory);
-    addDetail(body, "Concept", idea.concept);
-    addDetail(body, "Why it could work", idea.whyItCouldWork);
+    addDetail(body, "Concept and why it could work", idea.concept);
     body.appendChild(renderLinks(idea.links));
 
     const footer = addElement(card, "div", null, "card-footer");
@@ -73,4 +72,4 @@ function renderActions(footer, idea) {
     }, "btn-outline-danger");
 }
 
-loadIdeas();
+onPageShow("bank", loadIdeas);

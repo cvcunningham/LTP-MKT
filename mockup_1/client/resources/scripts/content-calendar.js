@@ -1,17 +1,18 @@
-// The Content Calendar: every Production Tracker item that has a target post date, colored by status.
-// It reads the same data as the tracker (GET /api/production?view=All), so the two always match.
+// The Content Calendar: the Production Tracker items that are Scheduled or Completed (CALENDAR_STATUSES)
+// and have a target post date, colored by status. It reads the same data as the tracker
+// (GET /api/production?view=All), so the two always match.
 const details = new bootstrap.Modal(document.getElementById("details"));
-const calendar = createMonthCalendar(document.getElementById("calendar"), showDetails);
+const contentCalendar = createMonthCalendar(document.getElementById("content-calendar-grid"), showDetails);
 
-renderColorKey(document.getElementById("color-key"), PRODUCTION_STATUS_CLASSES);
+renderColorKey(document.getElementById("content-color-key"), PRODUCTION_STATUS_CLASSES, CALENDAR_STATUSES);
 
-async function load() {
-    const message = document.getElementById("load-message");
+async function loadContentCalendar() {
+    const message = document.getElementById("content-load-message");
     showMessage(message, "Loading...");
     try {
         const items = await getJson("/production?view=All");
-        calendar.setItems(items
-            .filter((item) => item.targetPostDate)
+        contentCalendar.setItems(items
+            .filter((item) => item.targetPostDate && CALENDAR_STATUSES.includes(item.status))
             .map((item) => ({
                 date: item.targetPostDate,
                 label: item.idea.title,
@@ -42,8 +43,10 @@ function showDetails(item) {
 
     // Completed items are under the tracker's "Completed" filter.
     const view = item.status === "Completed" ? "Completed" : "InProgress";
-    document.getElementById("details-open").href = `tracker.html?view=${view}#item-${item.id}`;
+    const open = document.getElementById("details-open");
+    open.href = `#tracker?view=${view}&item=${item.id}`;
+    open.classList.toggle("d-none", !can("ViewTracker")); // semesters 1-2 can't see the tracker
     details.show();
 }
 
-load();
+onPageShow("content-calendar", loadContentCalendar);

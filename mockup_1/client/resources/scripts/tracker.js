@@ -1,21 +1,25 @@
 // The Production Tracker: approved ideas and their production details.
-// tracker.html?view=Completed#item-3 opens the Completed list and scrolls to item 3
+// Semesters 3-4 see it view only; 5-6 and 7-8 can edit (EditTracker); only 7-8 can delete.
+// index.html#tracker?view=Completed&item=3 opens the Completed list and scrolls to item 3
 // (used by the Content Calendar's "Open in Production Tracker" link).
 const container = document.getElementById("items");
 const viewFilter = document.getElementById("view-filter");
 
 let statuses = [];  // the Status choices, loaded from the API
-let employees = []; // for the Filmer / Editor / Reviewer / Poster dropdowns
+let employees = []; // for the Filmer / Editor / Reviewer / Poster dropdowns (only loaded for editors)
 
 viewFilter.addEventListener("change", loadItems);
 
-async function start() {
-    const view = new URLSearchParams(location.search).get("view");
-    if (view === "Completed") viewFilter.value = view;
+async function loadTracker() {
+    const view = pageParams().get("view");
+    if (view === "Completed" || view === "InProgress") viewFilter.value = view;
 
     showMessage(container, "Loading...");
     try {
-        [statuses, employees] = await Promise.all([getJson("/production/statuses"), getJson("/employees")]);
+        [statuses, employees] = await Promise.all([
+            getJson("/production/statuses"),
+            can("EditTracker") ? getJson("/employees") : []
+        ]);
     } catch (error) {
         showMessage(container, error.message, "text-danger");
         return;
@@ -41,9 +45,10 @@ async function loadItems() {
     items.forEach((item) => container.appendChild(renderItem(item)));
 }
 
-// Scrolls to #item-3 (if the page was opened with one) and outlines it.
+// Scrolls to item 3 (if the page was opened with &item=3) and outlines it.
 function scrollToLinkedItem() {
-    const target = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+    const item = pageParams().get("item");
+    const target = item ? document.getElementById("item-" + item) : null;
     if (!target) return;
     target.querySelector(".card").classList.add("border-primary", "border-3");
     target.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -70,7 +75,12 @@ function renderItem(item) {
     body.appendChild(renderLinks(idea.links, "Content files"));
     addElement(body, "hr");
 
-    // Production details (anyone can change these).
+    if (!can("EditTracker")) {
+        renderItemReadOnly(card, body, item);
+        return column;
+    }
+
+    // Production details (5-6 and 7-8 can change these).
     const row = addElement(body, "div", null, "row g-2");
     const filmer = addPersonField(row, "Filmer", item.filmerId, item.filmer);
     const editor = addPersonField(row, "Editor", item.editorId, item.editor);
@@ -104,13 +114,27 @@ function renderItem(item) {
             loadItems();
         }
     }, "btn-primary");
-    addButton(footer, "Delete", async () => {
-        if (confirm(`Permanently delete "${idea.title}" from the tracker, along with its idea and links? This can't be undone.`)) {
-            if (await sendChange(`${API_BASE}/production/${item.id}`, "DELETE")) loadItems();
-        }
-    }, "btn-outline-danger");
+    if (can("DeleteTracker")) {
+        addButton(footer, "Delete", async () => {
+            if (confirm(`Permanently delete "${idea.title}" from the tracker, along with its idea and links? This can't be undone.`)) {
+                if (await sendChange(`${API_BASE}/production/${item.id}`, "DELETE")) loadItems();
+            }
+        }, "btn-outline-danger");
+    }
     addElement(footer, "small", "Last saved " + formatDateTime(item.updatedAt), "text-body-secondary ms-auto");
     return column;
+}
+
+// View only (semesters 3-4): the production details as plain text, no Save or Delete.
+function renderItemReadOnly(card, body, item) {
+    addDetail(body, "Filmer", item.filmer || "Not assigned");
+    addDetail(body, "Editor", item.editor || "Not assigned");
+    addDetail(body, "Reviewer/approver", item.reviewer || "Not assigned");
+    addDetail(body, "Poster (who posts it)", item.poster || "Not assigned");
+    addDetail(body, "Target post date", formatDay(item.targetPostDate));
+    addDetail(body, "Status", item.status);
+    const footer = addElement(card, "div", null, "card-footer");
+    addElement(footer, "small", "Last saved " + formatDateTime(item.updatedAt), "text-body-secondary");
 }
 
 // An employee dropdown for one job. On rows from before employees.csv, the typed name is shown
@@ -135,4 +159,4 @@ function addField(row, labelText, input) {
     return input;
 }
 
-start();
+onPageShow("tracker", loadTracker);

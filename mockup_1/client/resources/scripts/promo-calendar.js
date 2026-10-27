@@ -1,4 +1,7 @@
-// The Promo Calendar: outreach scripts, the Promo List, and a calendar of the same promos.
+// The Promo Calendar: outreach scripts, the Promo List (every promo), and a calendar of the
+// Scheduled and Completed promos (CALENDAR_STATUSES).
+// Semesters 3-4 see it view only (and can Copy scripts); 5-6 and 7-8 can add and edit promos and
+// script wording (EditPromos); only 7-8 can delete promos (DeletePromos).
 
 // The mobile ordering app for each campus, filled in for [APP] in the scripts.
 const ORDERING_APPS = {
@@ -12,22 +15,30 @@ const NAME_PLACEHOLDERS = ["[SORORITY]", "[ORGANIZATION]", "[BUSINESS]"];
 const fillSelect = document.getElementById("fill-promo");
 const scriptsContainer = document.getElementById("scripts");
 const promoRows = document.getElementById("promo-rows");
-const calendar = createMonthCalendar(document.getElementById("calendar"), openPromoForm);
-renderColorKey(document.getElementById("color-key"), PROMO_STATUS_CLASSES);
+const promoCalendar = createMonthCalendar(document.getElementById("promo-calendar-grid"), (promo) => {
+    if (can("EditPromos")) openPromoForm(promo);
+    else showPromoDetails(promo);
+});
+renderColorKey(document.getElementById("promo-color-key"), PROMO_STATUS_CLASSES, CALENDAR_STATUSES);
 
 let promos = [];
 let scripts = [];
+let optionsLoaded = false; // the pop-up's Partner type and Status choices only need loading once
 
 // ----- Loading -------------------------------------------------------------------
 
-async function start() {
-    try {
-        const options = await getJson("/promos/options");
-        fillOptions(document.getElementById("promo-type"), options.partnerTypes);
-        fillOptions(document.getElementById("promo-status"), options.statuses);
-    } catch (error) {
-        showMessage(scriptsContainer, error.message, "text-danger");
-        return;
+async function loadPromoCalendar() {
+    document.getElementById("add-promo").classList.toggle("d-none", !can("EditPromos"));
+    if (!optionsLoaded) {
+        try {
+            const options = await getJson("/promos/options");
+            fillOptions(document.getElementById("promo-type"), options.partnerTypes);
+            fillOptions(document.getElementById("promo-status"), options.statuses);
+            optionsLoaded = true;
+        } catch (error) {
+            showMessage(scriptsContainer, error.message, "text-danger");
+            return;
+        }
     }
     await Promise.all([loadScripts(), loadPromos()]);
 }
@@ -56,7 +67,7 @@ async function loadPromos() {
     renderPromoList();
     renderFillChoices();
     renderScripts();
-    calendar.setItems(promos.map((promo) => ({
+    promoCalendar.setItems(promos.filter((promo) => CALENDAR_STATUSES.includes(promo.status)).map((promo) => ({
         date: promo.date,
         label: promo.name,
         className: PROMO_STATUS_CLASSES[promo.status] || "text-bg-secondary",
@@ -120,7 +131,7 @@ function showScriptText(body, footer, script, promo) {
     footer.textContent = "";
     addCopyBlock(body, "Message to the partner", fillIn(script.message, promo));
     if (script.forwardMessage) addCopyBlock(body, "Message for them to forward", fillIn(script.forwardMessage, promo));
-    addButton(footer, "Edit wording", () => showScriptEditor(body, footer, script, promo));
+    if (can("EditPromos")) addButton(footer, "Edit wording", () => showScriptEditor(body, footer, script, promo));
     if (script.updatedAt) addElement(footer, "small", "Last edited " + formatDateTime(script.updatedAt), "text-body-secondary");
 }
 
@@ -178,7 +189,8 @@ function addTextArea(parent, labelText, value) {
 function renderPromoList() {
     promoRows.textContent = "";
     if (promos.length === 0) {
-        addElement(addElement(promoRows, "tr"), "td", 'No promos yet. Click "+ Add promo" to add one.', "text-body-secondary").colSpan = 8;
+        const emptyText = can("EditPromos") ? 'No promos yet. Click "+ Add promo" to add one.' : "No promos yet.";
+        addElement(addElement(promoRows, "tr"), "td", emptyText, "text-body-secondary").colSpan = 8;
         return;
     }
     promos.forEach((promo) => {
@@ -192,8 +204,9 @@ function renderPromoList() {
         const contact = addElement(row, "td", promo.contactName || "—");
         if (promo.contactInfo) addElement(contact, "div", promo.contactInfo, "small text-body-secondary");
         const actions = addElement(row, "td", null, "text-nowrap text-end");
-        addButton(actions, "Edit", () => openPromoForm(promo));
-        addButton(actions, "Delete", () => deletePromo(promo), "btn-outline-danger");
+        if (can("EditPromos")) addButton(actions, "Edit", () => openPromoForm(promo));
+        else addButton(actions, "Details", () => showPromoDetails(promo));
+        if (can("DeletePromos")) addButton(actions, "Delete", () => deletePromo(promo), "btn-outline-danger");
     });
 }
 
@@ -204,11 +217,28 @@ async function deletePromo(promo) {
     return deleted;
 }
 
+// View only (semesters 3-4): a promo's details in a pop-up, with nothing to change.
+const promoDetails = new bootstrap.Modal(document.getElementById("promo-details"));
+
+function showPromoDetails(promo) {
+    document.getElementById("promo-details-title").textContent = promo.name;
+    const body = document.getElementById("promo-details-body");
+    body.textContent = "";
+    addBadge(addElement(body, "p"), promo.status, PROMO_STATUS_CLASSES);
+    addDetail(body, "Date", formatDay(promo.date));
+    addDetail(body, "Partner type", promo.partnerType);
+    addDetail(body, "Campus", promo.campus);
+    addDetail(body, "Promo code", promo.promoCode);
+    addDetail(body, "Contact", promo.contactName);
+    addDetail(body, "Contact email or phone", promo.contactInfo);
+    promoDetails.show();
+}
+
 // ----- Add / edit pop-up --------------------------------------------------------------------
 
 const promoModal = new bootstrap.Modal(document.getElementById("promo-modal"));
 const promoForm = document.getElementById("promo-form");
-const promoCampus = addCampusField(document.getElementById("promo-campus-field"), "promo-campus", "", true);
+const promoCampus = document.getElementById("promo-campus");
 const promoError = document.getElementById("promo-error");
 const deleteButton = document.getElementById("promo-delete");
 let editing = null; // the promo being edited, or null when adding
@@ -223,12 +253,12 @@ function openPromoForm(promo) {
     document.getElementById("promo-name").value = promo ? promo.name : "";
     document.getElementById("promo-type").value = promo ? promo.partnerType : "Sorority";
     document.getElementById("promo-date").value = promo ? promo.date : "";
-    promoCampus.set(promo ? promo.campus : "");
+    promoCampus.value = promo ? promo.campus : "";
     document.getElementById("promo-code").value = promo ? promo.promoCode : "";
     document.getElementById("promo-status").value = promo ? promo.status : "Reaching out";
     document.getElementById("promo-contact-name").value = promo ? promo.contactName : "";
     document.getElementById("promo-contact-info").value = promo ? promo.contactInfo : "";
-    deleteButton.hidden = !promo;
+    deleteButton.hidden = !promo || !can("DeletePromos");
     promoModal.show();
 }
 
@@ -247,7 +277,7 @@ promoForm.addEventListener("submit", async (event) => {
     const body = {
         name: document.getElementById("promo-name").value,
         partnerType: document.getElementById("promo-type").value,
-        campus: promoCampus.value(),
+        campus: promoCampus.value,
         date: document.getElementById("promo-date").value,
         promoCode: document.getElementById("promo-code").value,
         status: document.getElementById("promo-status").value,
@@ -259,7 +289,7 @@ promoForm.addEventListener("submit", async (event) => {
     const saveButton = document.getElementById("promo-save");
     saveButton.disabled = true;
     try {
-        const response = await fetch(editing ? `${API_BASE}/promos/${editing.id}` : `${API_BASE}/promos`, {
+        const response = await apiFetch(editing ? `${API_BASE}/promos/${editing.id}` : `${API_BASE}/promos`, {
             method: editing ? "PUT" : "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body)
@@ -282,4 +312,4 @@ function showFormError(text) {
     addElement(promoError, "div", text, "alert alert-danger mb-0");
 }
 
-start();
+onPageShow("promo-calendar", loadPromoCalendar);

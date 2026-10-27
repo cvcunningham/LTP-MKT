@@ -1,7 +1,7 @@
 # LTP Marketing – Mockup 1
 
 Tracks the progress and status of the business's marketing content. Employees submit social media
-content ideas; the Marketing Chair/Executive approves or denies them; approved ideas are tracked through
+content ideas; Leads (semesters 7-8) approve or deny them; approved ideas are tracked through
 production to posting on the Production Tracker and Content Calendar; and the Promo Calendar plans
 promos with sororities, student orgs and businesses.
 
@@ -9,16 +9,34 @@ Styled with **Bootstrap 5** (from a CDN); `style.css` only holds what Bootstrap 
 
 ## Pages
 
-| Page | File | What it's for |
-|---|---|---|
-| Ideas Form | `client/index.html` | One form = one idea. Your name comes from `employees.csv`; campus is Alabama / Ole Miss / Other. |
-| Ideas Bank | `client/bank.html` | "Waiting for review" cards with **Approve**, **Deny** and **Delete**, then "Denied" cards. |
-| Production Tracker | `client/tracker.html` | Approved ideas: Filmer / Editor / Reviewer / Poster (employee dropdowns), target post date, status. Filter: In progress / Completed. |
-| Content Calendar | `client/content-calendar.html` | Month calendar of the tracker's target post dates, colored by status. Click for details. |
-| Promo Calendar | `client/promo-calendar.html` | Outreach scripts (Copy, Edit, auto-fill from a promo), the Promo List, and a calendar of the promos. |
+The whole site is **one HTML file, `client/index.html`**. Each page is a `<section data-page="...">`
+in it, and only one is shown at a time: the one named after `#` in the address. The navbar links
+change that address, so refresh and the browser's Back button work as if they were separate pages.
 
-Every page has the same navbar (built by `renderNavbar()` in `resources/scripts/common.js`). Both
-calendars use `resources/scripts/calendar.js`.
+| Page | Address | Script | What it's for |
+|---|---|---|---|
+| Ideas Form | `index.html` (or `#form`) | `submit.js` | One form = one idea, submitted as whoever is logged in; campus is Alabama / Ole Miss / Either; content category is Food/Drink / Customer/Student Life / Employee / Other. |
+| Ideas Bank | `index.html#bank` | `bank.js` | "Waiting for review" cards with **Approve**, **Deny** and **Delete**, then "Denied" cards. |
+| Production Tracker | `index.html#tracker` | `tracker.js` | Approved ideas: Filmer / Editor / Reviewer / Poster (employee dropdowns), target post date, status. Filter: In progress / Completed. |
+| Content Calendar | `index.html#content-calendar` | `content-calendar.js` | Month calendar of the tracker's **Scheduled and Completed** items on their target post dates, colored by status. Click for details. |
+| Promo Calendar | `index.html#promo-calendar` | `promo-calendar.js` | From top to bottom: the Promo List, a calendar of the promos, and the outreach scripts (Copy, Edit, auto-fill from a promo). |
+| Intern Directory | `index.html#directory` | `directory.js` | Every employee by semester (1 & 2, 3 & 4, 5 & 6, 7 & 8). Add, edit (including ID and semester) and delete. |
+
+The HTML is all in `index.html`, but the JavaScript and CSS stay in their own files:
+`resources/scripts/` (one script per page, plus `common.js`, `calendar.js` and `auth.js`) and
+`resources/styles/style.css`.
+
+- `common.js` builds the navbar (`renderNavbar()`) and switches pages (`showCurrentPage()`).
+- Each page's script registers its loading function with `onPageShow("bank", loadIdeas)`. It runs
+  **every time that page is shown**, so each page always has the latest data (e.g. an idea approved
+  in the Ideas Bank is in the Production Tracker when you open it). The Ideas Form keeps what
+  you've typed when you switch pages.
+- Extra settings go after a `?`: `index.html#tracker?view=Completed&item=3` opens the tracker's
+  Completed list and scrolls to item 3 (the Content Calendar's "Open in Production Tracker" link).
+- Because every script runs on the same page, **top-level names and element ids must be unique
+  across all of them** (e.g. `contentCalendar` / `promoCalendar`, `content-calendar-grid` /
+  `promo-calendar-grid`).
+- Both calendars use `resources/scripts/calendar.js`.
 
 ## How an idea moves through the site
 
@@ -37,7 +55,31 @@ Ideas Form ──► Ideas Bank: Waiting for review ──► Approve ──► 
 - **Decisions are final.** An approved or denied idea can't be changed.
 - **Delete** (Ideas Bank or Production Tracker) permanently removes the idea, its links and its
   tracker entry. It can't be undone.
-- For now anyone can do all of this (no login yet). Later only the Marketing Chair/Executive will review.
+- Only Leads (semesters 7-8) can see the Ideas Bank.
+
+## Logging in
+
+Everyone logs in with their **employee ID** and **password** (starting password: **LTPMKT**). The
+navbar shows only the pages that person can use, with **Change password** and **Log out**. Login
+lasts until the browser tab is closed (12 hours at most), and restarting the API logs everyone out.
+
+| Page | Sem 1-2 | Sem 3-4 | Sem 5-6 | Sem 7-8 (Leads) |
+|---|---|---|---|---|
+| Ideas Form | submit | submit | submit | submit |
+| Ideas Bank | hidden | hidden | hidden | approve / deny / delete |
+| Production Tracker | hidden | view only | edit | edit + delete |
+| Content Calendar | view only | view only | view only | view only |
+| Promo Calendar | hidden | view only (+ Copy scripts) | add / edit promos + script wording | + delete promos |
+| Intern Directory | hidden | hidden | hidden | add / edit / delete / reset passwords |
+
+- The rules live in `api/Auth/Permissions.cs`. Every API action is marked with
+  `[RequirePermission(...)]` (`api/Auth/RequirePermission.cs`), so the API refuses anything the
+  person isn't allowed to do (401 = not logged in, 403 = not allowed), even if the page were changed.
+- Passwords are stored hashed (`api/Auth/Passwords.cs`) in `employees.csv`'s `PasswordHash` column.
+  Empty = LTPMKT. Changing needs 8+ characters. Leads can reset someone's password in the Intern
+  Directory.
+- The page sends the login token with every request (`apiFetch()` in `common.js`); `auth.js` has
+  the login page, Log out and Change password.
 
 ## Production Tracker
 
@@ -49,11 +91,16 @@ These can be changed anytime, then saved with **Save**:
 - Filmer, Editor, Reviewer/approver, Poster (who posts it): dropdowns of every employee, grouped by campus
 - Target post date: a date picker (items are listed soonest first; no date goes last)
 - Status: Needs filming → Needs editing → Needs final review → Scheduled → Completed
+  (**Scheduled needs a target post date**; Save is refused without one)
 
 Items marked **Completed** move to the "Completed" filter. They stay until someone deletes them.
-Every item with a target post date also shows on the **Content Calendar**.
+Only **Scheduled** and **Completed** items show on the **Content Calendar** (on their target post
+date). Items still in production stay in the tracker only. The list of calendar statuses is
+`CALENDAR_STATUSES` in `common.js`, shared by both calendars.
 
 ## Promo Calendar
+
+The page shows the Promo List first, then the calendar, then the outreach scripts.
 
 - **Outreach scripts**: one per partner type (Sorority, Student org, Business), each with a message to
   the partner and a message for them to forward to their members. Choose a promo in "Fill in from promo"
@@ -61,9 +108,20 @@ Every item with a target post date also shows on the **Content Calendar**.
   `[DAY/DATE]`, and `[APP]` (Alabama: Bama Dining Mobile Order app; Ole Miss: GrubHub app; the list is
   `ORDERING_APPS` in `promo-calendar.js`). **Copy** copies the filled-in text. **Edit wording** changes
   the saved script.
-- **Promo List**: name, partner type, campus, date, promo code, status (Reaching out → Confirmed →
-  Completed, or Cancelled) and partner contact. Add, edit or delete (permanent).
-- **Calendar**: the same promos on their dates, colored by status. Click one to edit it.
+- **Promo List**: every promo: name, partner type, campus, date, promo code, status (Reaching out →
+  Scheduled → Completed, or Cancelled) and partner contact. Add, edit or delete (permanent).
+- **Calendar**: only the **Scheduled** and **Completed** promos, on their dates, colored by status.
+  Reaching out and Cancelled promos stay in the list only. Click one to edit it.
+
+## Intern Directory
+
+- Four tables, one per semester pair, each sorted by campus then name. Semesters 7 & 8 are **Leads**
+  (Role is set automatically from the semester; it isn't in the form).
+- **+ Add intern** / **Edit** open a pop-up: ID, name, campus (Alabama / Ole Miss) and semester are
+  required; email and phone are optional. A new intern's ID is pre-filled with the next free one.
+- **Changing an ID** moves that person's ideas and Production Tracker jobs to the new ID. An ID is
+  refused if another employee has it, or if a deleted employee's old ideas/jobs still use it.
+- **Delete** is permanent. Their ideas and jobs show "(former employee #3)".
 
 ## How the data is stored
 
@@ -74,7 +132,7 @@ company OneDrive folder and paste the share link. Only the link is saved.
 api/Data/ideas.csv       <- one row per idea
 api/Data/links.csv       <- one row per photo/video link, linked to its idea by IdeaId
 api/Data/production.csv  <- one row per approved idea, linked to its idea by IdeaId
-api/Data/employees.csv   <- one row per employee (edited by hand for now)
+api/Data/employees.csv   <- one row per employee (edited in the Intern Directory)
 api/Data/promos.csv      <- one row per promo
 api/Data/scripts.csv     <- one outreach script per partner type
 ```
@@ -84,18 +142,15 @@ api/Data/scripts.csv     <- one outreach script per partner type
 | Id | Id | Id |
 | Name (typed name, older ideas only) | IdeaId → ideas.Id | IdeaId → ideas.Id |
 | Title (content name) | Type (Photo / Video) | Filmer, Editor, Reviewer, Poster (typed names, older rows only) |
-| Concept | Label (optional) | TargetPostDate (`yyyy-MM-dd`, may be empty) |
+| Concept (the concept and why it could work) | Label (optional) | TargetPostDate (`yyyy-MM-dd`, may be empty) |
 | Caption | Url (must start with https://) | Status |
-| Platforms (e.g. `Instagram;TikTok`) | DriveItemId (OneDrive file id, only for uploads; see below) | UpdatedAt (last saved) |
-| Hashtags | | FilmerId → employees.Id |
-| CreatedAt (the timestamp) | | EditorId → employees.Id |
-| ReviewStatus (Pending / Approved / Rejected) | | ReviewerId → employees.Id |
-| DenialReason (only on older ideas) | | PosterId → employees.Id |
-| ReviewedAt | | |
-| Campus | | |
+| CreatedAt (the timestamp) | DriveItemId (OneDrive file id, only for uploads; see below) | UpdatedAt (last saved) |
+| ReviewStatus (Pending / Approved / Rejected) | | FilmerId → employees.Id |
+| DenialReason (only on older ideas) | | EditorId → employees.Id |
+| ReviewedAt | | ReviewerId → employees.Id |
+| Campus (Alabama / Ole Miss / Either) | | PosterId → employees.Id |
 | ContentType (the format, e.g. Reel) | | |
-| ContentCategory (the topic, e.g. Food) | | |
-| WhyItCouldWork | | |
+| ContentCategory (Food/Drink / Customer/Student Life / Employee / Other) | | |
 | SubmittedById → employees.Id | | |
 
 | employees.csv | promos.csv | scripts.csv |
@@ -105,19 +160,21 @@ api/Data/scripts.csv     <- one outreach script per partner type
 | Email | PartnerType (Sorority / Student org / Business) | Message (to the partner) |
 | Phone | Campus | ForwardMessage (for their members) |
 | Campus | Date (`yyyy-MM-dd`) | UpdatedAt |
-| Semester (1, 2, 3, ...) | PromoCode | |
-| Role (Member / Marketing Chair / Executive) | Status | |
+| Semester (1-2 / 3-4 / 5-6 / 7-8) | PromoCode | |
+| Role (Lead for 7-8, otherwise blank) | Status | |
 | | ContactName, ContactInfo | |
 | | CreatedAt, UpdatedAt | |
 
-New columns are always added at the **end** of a file. When the API starts, it upgrades older
-CSV files by adding the missing columns (empty), so no data is lost. Older tracker statuses are read
+When the API starts, it upgrades older CSV files to the current columns, **matching columns by
+name**: columns still in use keep their values, new columns are added empty, and removed columns
+are dropped (e.g. `Platforms`, `Hashtags` and `WhyItCouldWork` were removed from `ideas.csv`; the
+"why it could work" text was merged into `Concept` first). Older tracker statuses are read
 as the new ones (Not started/Filming → Needs filming, Editing → Needs editing, Ready for review →
-Needs final review, Posted → Completed).
+Needs final review, Posted → Completed), and the old promo status "Confirmed" is read as "Scheduled".
 
-**employees.csv** is edited by hand (no Employees page yet). Changes show up the next time a page
-loads, without restarting the API. Don't reuse or delete an employee's Id while ideas or tracker items
-use it; a missing Id shows as "(former employee #3)".
+**employees.csv** is edited in the Intern Directory (it can still be edited by hand; changes show up
+the next time a page loads, without restarting the API). If editing by hand, don't reuse or delete
+an employee's Id while ideas or tracker items use it; a missing Id shows as "(former employee #3)".
 
 **Test data:** idea #1 "Bowl" (submitted by Caroline), approved, with a Completed tracker item
 (Ryan films and edits, Haley reviews and posts).
@@ -132,29 +189,43 @@ use it; a missing Id shows as "(former employee #3)".
    Always run it from inside `api/`, because `Data/` is found relative to it.
    The API runs at http://localhost:5050.
 2. Open `client/index.html` with Live Server (or just double-click it).
+3. Log in with your employee ID and password (starting password **LTPMKT**). After restarting the
+   API, everyone has to log in again.
 
 ## API endpoints
 
+Everything except `POST /api/auth/login` needs the login token (`Authorization: Bearer <token>`)
+and the permission in brackets (see "Logging in").
+
 | Method | URL | Body | What it does |
 |---|---|---|---|
-| GET | `/api/ideas` | | The Ideas Bank: ideas waiting for review + denied ideas (with `deletesOn`) |
-| POST | `/api/ideas` | multipart form: `idea` = the idea as JSON (with `submittedById` and a `links` array) | Submit an idea |
-| POST | `/api/ideas/{id}/approve` | | Approve (Pending only); creates its tracker item |
-| POST | `/api/ideas/{id}/reject` | | Deny (Pending only) |
-| DELETE | `/api/ideas/{id}` | | Permanently delete the idea, its links and its tracker item |
-| GET | `/api/ideas/files/{linkId}` | | For uploaded files only (see below) |
-| GET | `/api/production?view=InProgress` | | Tracker items not yet Completed (`view=Completed` for completed ones, `view=All` for the Content Calendar) |
-| GET | `/api/production/statuses` | | The Status choices, in order |
-| PUT | `/api/production/{id}` | JSON: `filmerId`, `editorId`, `reviewerId`, `posterId`, `targetPostDate`, `status` | Save production details |
-| DELETE | `/api/production/{id}` | | Permanently delete the item, its idea and links |
-| GET | `/api/employees` | | Every employee, by campus then name |
-| GET | `/api/promos` | | Every promo, soonest first |
-| GET | `/api/promos/options` | | The Partner type and Status choices |
-| POST | `/api/promos` | JSON: `name`, `partnerType`, `campus`, `date`, `promoCode`, `status`, `contactName`, `contactInfo` | Add a promo |
-| PUT | `/api/promos/{id}` | same as POST | Save a promo |
-| DELETE | `/api/promos/{id}` | | Permanently delete a promo |
-| GET | `/api/promos/scripts` | | The outreach scripts |
-| PUT | `/api/promos/scripts/{id}` | JSON: `message`, `forwardMessage` | Save a script's wording |
+| POST | `/api/auth/login` | JSON: `id`, `password` | Log in: returns `token` and `me` (employee + permissions) |
+| GET | `/api/auth/me` | | Who is logged in, and their permissions |
+| POST | `/api/auth/logout` | | Log out |
+| POST | `/api/auth/password` | JSON: `currentPassword`, `newPassword` | Change your own password (8+ characters) |
+| POST | `/api/employees/{id}/reset-password` | | [ManageDirectory] Set their password back to LTPMKT |
+| GET | `/api/ideas` | | [ReviewIdeas] The Ideas Bank: ideas waiting for review + denied ideas (with `deletesOn`) |
+| POST | `/api/ideas` | multipart form: `idea` = the idea as JSON (with a `links` array) | [SubmitIdeas] Submit an idea (as the logged-in person) |
+| POST | `/api/ideas/{id}/approve` | | [ReviewIdeas] Approve (Pending only); creates its tracker item |
+| POST | `/api/ideas/{id}/reject` | | [ReviewIdeas] Deny (Pending only) |
+| DELETE | `/api/ideas/{id}` | | [ReviewIdeas] Permanently delete the idea, its links and its tracker item |
+| GET | `/api/ideas/files/{linkId}` | | [no login: see Known mockup shortcuts] For uploaded files only (see below) |
+| GET | `/api/production?view=InProgress` | | [ViewTracker; `view=All` needs only ViewContentCalendar] Tracker items not yet Completed (`view=Completed` for completed ones, `view=All` for the Content Calendar) |
+| GET | `/api/production/statuses` | | [ViewTracker] The Status choices, in order |
+| PUT | `/api/production/{id}` | JSON: `filmerId`, `editorId`, `reviewerId`, `posterId`, `targetPostDate`, `status` | [EditTracker] Save production details |
+| DELETE | `/api/production/{id}` | | [DeleteTracker] Permanently delete the item, its idea and links |
+| GET | `/api/employees` | | [EditTracker or ManageDirectory] Every employee, by campus then name |
+| GET | `/api/employees/next-id` | | [ManageDirectory] The ID to suggest for a new intern (one higher than any ID in use) |
+| POST | `/api/employees` | JSON: `id`, `name`, `email`, `phone`, `campus`, `semester` | [ManageDirectory] Add an employee |
+| PUT | `/api/employees/{id}` | same as POST (a different `id` changes their ID and moves their ideas and tracker jobs) | [ManageDirectory] Save an employee |
+| DELETE | `/api/employees/{id}` | | [ManageDirectory] Permanently delete an employee |
+| GET | `/api/promos` | | [ViewPromos] Every promo, soonest first |
+| GET | `/api/promos/options` | | [ViewPromos] The Partner type and Status choices |
+| POST | `/api/promos` | JSON: `name`, `partnerType`, `campus`, `date`, `promoCode`, `status`, `contactName`, `contactInfo` | [EditPromos] Add a promo |
+| PUT | `/api/promos/{id}` | same as POST | [EditPromos] Save a promo |
+| DELETE | `/api/promos/{id}` | | [DeletePromos] Permanently delete a promo |
+| GET | `/api/promos/scripts` | | [ViewPromos] The outreach scripts |
+| PUT | `/api/promos/scripts/{id}` | JSON: `message`, `forwardMessage` | [EditPromos] Save a script's wording |
 
 ## Things to know about links
 
@@ -217,11 +288,8 @@ registration". This is free with Microsoft 365, but **a Microsoft 365 admin has 
        campus            VARCHAR(100),
        content_type      VARCHAR(100),
        content_category  VARCHAR(100),
-       concept           TEXT,
-       why_it_could_work TEXT,
+       concept           TEXT,          -- the concept and why it could work
        caption           TEXT,
-       platforms         VARCHAR(100),
-       hashtags          VARCHAR(500),
        created_at        DATETIME NOT NULL,
        review_status     VARCHAR(20) NOT NULL DEFAULT 'Pending',
        denial_reason     TEXT,          -- only on older ideas
@@ -244,8 +312,8 @@ registration". This is free with Microsoft 365, but **a Microsoft 365 admin has 
        email    VARCHAR(200),
        phone    VARCHAR(30),
        campus   VARCHAR(100),
-       semester INT NULL,
-       role     VARCHAR(30) NOT NULL DEFAULT 'Member'
+       semester VARCHAR(3),                      -- '1-2', '3-4', '5-6' or '7-8'
+       role     VARCHAR(30) NOT NULL DEFAULT ''  -- 'Lead' for 7-8
    );
 
    CREATE TABLE production_items (
@@ -258,11 +326,10 @@ registration". This is free with Microsoft 365, but **a Microsoft 365 admin has 
        target_post_date DATE NULL,
        status           VARCHAR(30) NOT NULL DEFAULT 'Needs filming',
        updated_at       DATETIME NOT NULL,
-       FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE,
-       FOREIGN KEY (filmer_id) REFERENCES employees(id),
-       FOREIGN KEY (editor_id) REFERENCES employees(id),
-       FOREIGN KEY (reviewer_id) REFERENCES employees(id),
-       FOREIGN KEY (poster_id) REFERENCES employees(id)
+       FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE
+       -- No foreign keys to employees: a deleted employee's id stays on their jobs ("former
+       -- employee"), which a foreign key wouldn't allow. Changing an employee's id updates these
+       -- columns in code (ReplaceEmployeeIdAsync), the same as the CSV version.
    );
 
    CREATE TABLE promos (
@@ -287,8 +354,7 @@ registration". This is free with Microsoft 365, but **a Microsoft 365 admin has 
        updated_at      DATETIME NULL
    );
    ```
-   (Create `employees` before `ideas`, and add `submitted_by_id INT NULL REFERENCES employees(id)` to
-   `ideas`. The old typed-name columns only need copying if older rows still use them.)
+   (Add `submitted_by_id INT NULL` to `ideas`, with no foreign key, for the same reason. The old typed-name columns only need copying if older rows still use them.)
 2. Add the `MySqlConnector` NuGet package and write `MySqlIdeaRepository : IIdeaRepository`.
    - `AddAsync`: insert the idea, get its new id, insert each link, all in one transaction.
    - `ApproveAsync`: in one transaction, `UPDATE ideas SET review_status = 'Approved',
@@ -301,7 +367,10 @@ registration". This is free with Microsoft 365, but **a Microsoft 365 admin has 
 
 ## Known mockup shortcuts
 
-- No login: anyone can pick any name, and anyone can approve, deny, edit or delete.
+- Logins are kept in the API's memory, so restarting the API logs everyone out. There's no limit
+  on wrong password attempts yet.
+- `GET /api/ideas/files/{linkId}` (uploads, turned off) isn't behind the login, because `<img>` and
+  `<video>` tags can't send the token. It needs its own check if uploads are turned back on.
 - The app can't check that a link actually works or is shared correctly.
 - If two people edit the same tracker item, promo or script at the same time, the last one to click
   Save wins.
