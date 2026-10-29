@@ -1,4 +1,5 @@
 // The Ideas Bank: ideas waiting for review (with Approve / Deny / Delete) and denied ideas.
+// Without ReviewIdeas (someone a Lead gave view-only access) the cards have no buttons.
 // (The API and CSV call a denied idea "Rejected".)
 const waiting = document.getElementById("waiting");
 const rejected = document.getElementById("rejected");
@@ -44,8 +45,10 @@ function renderCard(idea) {
     if (denied) {
         addElement(footer, "small", `Denied on ${formatDateTime(idea.reviewedAt)}. ` +
             `It will be deleted automatically on ${formatDate(idea.deletesOn)}.`, "text-body-secondary");
-    } else {
+    } else if (can("ReviewIdeas")) {
         renderActions(footer, idea);
+    } else {
+        addElement(footer, "small", "Waiting for a Lead to review it.", "text-body-secondary");
     }
     return column;
 }

@@ -5,7 +5,7 @@ Guidance for Claude when working in this repository.
 ## Project
 
 A site that tracks the **progress and status of marketing content** for a business (Low Tide).
-Employees log in and submit social media content ideas; Leads (semesters 7-8) approve or deny them;
+Employees log in and submit social media content ideas; Leads (access Level 4) approve or deny them;
 approved ideas are tracked through production to posting; and the team plans promos with partner
 organizations. It will be used for many years and will eventually be deployed and connected to the
 company's existing website.
@@ -121,25 +121,38 @@ Intern Directory (separate): the employee list used by every name dropdown
 - Login lasts **until the browser tab is closed** (the token is in `sessionStorage`); the API also
   ends sessions after 12 hours. Sessions are kept in the API's memory, so **restarting the API logs
   everyone out**. There's a **Log out** button in the navbar.
-- **What each semester can do** (the page hides what you can't use, and the API refuses it too):
+- **Access comes from the access level (1-4), not the semester.** Every intern has a Semester
+  (information only) and an Access level, set separately in the Intern Directory (a new intern's
+  level follows their semester until changed; rows from before levels were read from the semester).
+- **What each level can do** (the page hides what you can't use, and the API refuses it too):
 
-| Page | Sem 1-2 | Sem 3-4 | Sem 5-6 | Sem 7-8 (Leads) |
+| Page | Level 1 (usually sem 1-2) | Level 2 (sem 3-4) | Level 3 (sem 5-6) | Level 4 = Leads (sem 7-8) |
 |---|---|---|---|---|
 | Ideas Form | submit | submit | submit | submit |
-| Ideas Bank | hidden | hidden | hidden | approve / deny / delete |
-| Production Tracker | hidden | view only | edit | edit + delete |
+| Ideas Bank | No | No | No | approve / deny / delete |
+| Production Tracker | No | view + change Filmer / Editor | edit | edit + delete |
 | Content Calendar | view only | view only | view only | view only |
-| Promo Calendar | hidden | view only (+ Copy scripts) | add / edit promos + script wording | + delete promos |
-| Intern Directory | hidden | hidden | hidden | add / edit / delete / reset passwords |
+| Promo Calendar | No | view only (+ Copy scripts) | add / edit promos + script wording | + delete promos |
+| Intern Directory | No | No | No | add / edit / delete / reset passwords |
 
-- The permissions are defined once, in `api/Auth/Permissions.cs` (`SubmitIdeas`, `ViewTracker`,
-  `EditTracker`, `DeleteTracker`, `ViewPromos`, `EditPromos`, `DeletePromos`, `ReviewIdeas`,
-  `ManageDirectory`, `ViewContentCalendar`). Every API action has `[RequirePermission(...)]`; the page
-  gets the same list at login and checks it with `can("EditPromos")`. **Change access there, not in
-  the page.** A semester change applies on the next request.
+Each cell is the level's default. In the Intern Directory a Lead can switch any page to **Yes** or
+**No** for one person: "No" hides the page; "Yes" on a page the level normally has gives the level's
+access above, and "Yes" on a page it doesn't (a "No" cell) gives **view only** (e.g. the Ideas Bank
+without Approve/Deny, the Directory without Add/Edit).
+
+- The permissions are defined once, in `api/Auth/Permissions.cs` (`SubmitIdeas`, `ViewIdeas`,
+  `ReviewIdeas`, `ViewTracker`, `AssignCrew`, `EditTracker`, `DeleteTracker`, `ViewContentCalendar`,
+  `ViewPromos`, `EditPromos`, `DeletePromos`, `ViewDirectory`, `ManageDirectory`), with what each level
+  gets on each page and what a view-only "Yes" gives. Every API action has `[RequirePermission(...)]`;
+  the page gets the same list at login and checks it with `can("EditPromos")`. **Change access there,
+  not in the page.** A level or Yes/No change applies on the next request.
+- The Yes/No choices are stored in `employee_page_access.csv` (`Id, EmployeeId, Page, Allowed`),
+  **only for pages set differently from the level's default**. Changing someone's level resets their
+  switches to the new level's pages (in the pop-up, before Save).
 - View-only pages show plain text, no buttons (e.g. tracker jobs as names; a promo's details in a
-  read-only pop-up). Semester 1-2 doesn't see "Open in Production Tracker" on the Content Calendar.
-- A Lead can't delete themselves or move themselves out of 7-8 (so nobody gets locked out).
+  read-only pop-up). Without the tracker, "Open in Production Tracker" is hidden on the Content Calendar.
+- A Lead can't delete themselves or take away their own Intern Directory editing (Level 4 with
+  Intern Directory = Yes), so nobody gets locked out.
 - Opening a page you can't see goes to the Ideas Form.
 
 ### 1. Ideas Form (`index.html#form`, `submit.js`)
@@ -174,7 +187,8 @@ Where ideas are reviewed: **Approve**, **Deny** (shown as "Reject" in older code
 One item per approved idea (created on approve).
 - From the idea, can't be changed here: content name, campus, content type, content category,
   caption, and the idea's links (shown as "Content files").
-- Assigned and changed anytime by **semesters 5-8** (3-4 view only; only 7-8 can delete), with a Save button: **Filmer, Editor,
+- Assigned and changed anytime by **Levels 3-4** (Level 2 can change only **Filmer and Editor**;
+  the API keeps everything else as it was; only Level 4 can delete), with a Save button: **Filmer, Editor,
   Reviewer/approver, Poster** (each a **dropdown of all employees, grouped by campus**), **Target
   post date**, and **Status**.
 - **Status list: Needs filming → Needs editing → Needs final review → Scheduled → Completed.**
@@ -239,12 +253,18 @@ Planning promos with partner organizations. Three parts, shown top to bottom in 
 - No archive, no soft delete, no restore, no `.bak` copies of deleted data.
 
 ### 6. Intern Directory (`index.html#directory`, `directory.js`)
-The list of employees (`employees.csv`), **added, edited and deleted here by Leads (7-8) only**.
-- Grouped into four tables by semester: **Semester 1 & 2, 3 & 4, 5 & 6, 7 & 8** (empty groups say
-  so). Columns: ID, name, campus, role, email, phone; sorted by campus, then name.
+The list of employees (`employees.csv`), **added, edited and deleted here by Leads (Level 4) only**
+(anyone else a Lead sets to Yes sees it view only).
+- Grouped into four tables by access level: **Level 1 (Semesters 1 & 2), Level 2 (3 & 4), Level 3
+  (5 & 6), Level 4: Leads (7 & 8)** (empty groups say so). Columns: ID, name (+ a "Custom page
+  access" badge if any switch differs from the level), campus, semester, role, email, phone;
+  sorted by campus, then name.
 - Add / Edit is a pop-up (like the Promo List). **Required: ID, name, campus (Alabama / Ole Miss),
-  semester.** Email and phone are optional. Adding pre-fills the next free ID
+  semester, access level.** Email and phone are optional. Adding pre-fills the next free ID
   (`GET /api/employees/next-id`), which can be changed.
+- **Page access:** a Yes / No switch beside each of the six pages, with what "Yes" gives at the
+  chosen level ("Level N access" or "Yes = view only"). The level's default pages come from
+  `GET /api/employees/level-pages`.
 - **IDs can be edited.** Changing someone's ID also moves their ideas (`SubmittedById`) and tracker
   jobs (Filmer/Editor/Reviewer/Poster) to the new ID. An ID is refused if another employee has it,
   **or** if old ideas/tracker jobs still point to it (a deleted employee's ID), so nobody inherits
@@ -258,7 +278,8 @@ The list of employees (`employees.csv`), **added, edited and deleted here by Lea
 - `employees.csv` is who can log in, and fills the tracker's Filmer / Editor / Reviewer / Poster
   dropdowns. Ideas and tracker rows store the **employee Id**, so fixing a name fixes it
   everywhere. It can still be edited by hand; changes show on the next page load.
-- **Semester is a pair: `1-2`, `3-4`, `5-6` or `7-8`**, moved up by hand each year.
+- **Semester is a pair: `1-2`, `3-4`, `5-6` or `7-8`**, moved up by hand each year. It's
+  information only; the **AccessLevel** column (1-4) decides access. Level 4 = Role "Lead".
 - **Role is automatic from the semester: `Lead` for 7-8, blank for everyone else.** It isn't in the
   form. **Access comes from the semester**, not the role (see "Login and access").
 - The team (Oct 2026): Haley King (#1, Alabama, Lead), then in order Ryder diTargiani, Savannah

@@ -159,8 +159,11 @@ public class CsvIdeaRepository : IIdeaRepository
             item.EditorId = changes.EditorId;
             item.ReviewerId = changes.ReviewerId;
             item.PosterId = changes.PosterId;
-            // The dropdowns replace any names typed before employees.csv existed.
-            item.Filmer = item.Editor = item.Reviewer = item.Poster = "";
+            // Typed names from before employees.csv (the controller says which ones to keep).
+            item.Filmer = changes.Filmer;
+            item.Editor = changes.Editor;
+            item.Reviewer = changes.Reviewer;
+            item.Poster = changes.Poster;
             item.TargetPostDate = changes.TargetPostDate;
             item.Status = changes.Status;
             item.UpdatedAt = DateTime.UtcNow;

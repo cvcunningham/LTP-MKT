@@ -1,7 +1,7 @@
 # LTP Marketing – Mockup 1
 
 Tracks the progress and status of the business's marketing content. Employees submit social media
-content ideas; Leads (semesters 7-8) approve or deny them; approved ideas are tracked through
+content ideas; Leads (access Level 4) approve or deny them; approved ideas are tracked through
 production to posting on the Production Tracker and Content Calendar; and the Promo Calendar plans
 promos with sororities, student orgs and businesses.
 
@@ -20,7 +20,7 @@ change that address, so refresh and the browser's Back button work as if they we
 | Production Tracker | `index.html#tracker` | `tracker.js` | Approved ideas: Filmer / Editor / Reviewer / Poster (employee dropdowns), target post date, status. Filter: In progress / Completed. |
 | Content Calendar | `index.html#content-calendar` | `content-calendar.js` | Month calendar of the tracker's **Scheduled and Completed** items on their target post dates, colored by status. Click for details. |
 | Promo Calendar | `index.html#promo-calendar` | `promo-calendar.js` | From top to bottom: the Promo List, a calendar of the promos, and the outreach scripts (Copy, Edit, auto-fill from a promo). |
-| Intern Directory | `index.html#directory` | `directory.js` | Every employee by semester (1 & 2, 3 & 4, 5 & 6, 7 & 8). Add, edit (including ID and semester) and delete. |
+| Intern Directory | `index.html#directory` | `directory.js` | Every employee by access level (1-4). Add, edit (including ID, semester, level and per-page Yes/No access) and delete. |
 
 The HTML is all in `index.html`, but the JavaScript and CSS stay in their own files:
 `resources/scripts/` (one script per page, plus `common.js`, `calendar.js` and `auth.js`) and
@@ -55,7 +55,7 @@ Ideas Form ──► Ideas Bank: Waiting for review ──► Approve ──► 
 - **Decisions are final.** An approved or denied idea can't be changed.
 - **Delete** (Ideas Bank or Production Tracker) permanently removes the idea, its links and its
   tracker entry. It can't be undone.
-- Only Leads (semesters 7-8) can see the Ideas Bank.
+- Only Leads (Level 4) can approve / deny / delete. Others see the Ideas Bank only if a Lead sets it to Yes (view only).
 
 ## Logging in
 
@@ -63,14 +63,19 @@ Everyone logs in with their **employee ID** and **password** (starting password:
 navbar shows only the pages that person can use, with **Change password** and **Log out**. Login
 lasts until the browser tab is closed (12 hours at most), and restarting the API logs everyone out.
 
-| Page | Sem 1-2 | Sem 3-4 | Sem 5-6 | Sem 7-8 (Leads) |
+| Page | Level 1 (usually sem 1-2) | Level 2 (sem 3-4) | Level 3 (sem 5-6) | Level 4 = Leads (sem 7-8) |
 |---|---|---|---|---|
 | Ideas Form | submit | submit | submit | submit |
-| Ideas Bank | hidden | hidden | hidden | approve / deny / delete |
-| Production Tracker | hidden | view only | edit | edit + delete |
+| Ideas Bank | No | No | No | approve / deny / delete |
+| Production Tracker | No | view + change Filmer / Editor | edit | edit + delete |
 | Content Calendar | view only | view only | view only | view only |
-| Promo Calendar | hidden | view only (+ Copy scripts) | add / edit promos + script wording | + delete promos |
-| Intern Directory | hidden | hidden | hidden | add / edit / delete / reset passwords |
+| Promo Calendar | No | view only (+ Copy scripts) | add / edit promos + script wording | + delete promos |
+| Intern Directory | No | No | No | add / edit / delete / reset passwords |
+
+Each cell is the level's default. In the Intern Directory a Lead can switch any page to **Yes** or
+**No** for one person: "No" hides the page; "Yes" on a page the level normally has gives the level's
+access above, and "Yes" on a page it doesn't (a "No" cell) gives **view only** (e.g. the Ideas Bank
+without Approve/Deny, the Directory without Add/Edit).
 
 - The rules live in `api/Auth/Permissions.cs`. Every API action is marked with
   `[RequirePermission(...)]` (`api/Auth/RequirePermission.cs`), so the API refuses anything the
@@ -115,10 +120,13 @@ The page shows the Promo List first, then the calendar, then the outreach script
 
 ## Intern Directory
 
-- Four tables, one per semester pair, each sorted by campus then name. Semesters 7 & 8 are **Leads**
-  (Role is set automatically from the semester; it isn't in the form).
-- **+ Add intern** / **Edit** open a pop-up: ID, name, campus (Alabama / Ole Miss) and semester are
-  required; email and phone are optional. A new intern's ID is pre-filled with the next free one.
+- Four tables, one per access level, each sorted by campus then name. Level 4 interns are **Leads**
+  (Role is set automatically from the level; it isn't in the form).
+- **+ Add intern** / **Edit** open a pop-up: ID, name, campus (Alabama / Ole Miss), semester and
+  access level are required; email and phone are optional. A new intern's ID is pre-filled with the
+  next free one, and their level follows the semester until one is chosen.
+- **Page access:** a Yes / No switch per page. Changing the level resets them to that level's pages.
+  Only the switches that differ from the level are saved, in `employee_page_access.csv`.
 - **Changing an ID** moves that person's ideas and Production Tracker jobs to the new ID. An ID is
   refused if another employee has it, or if a deleted employee's old ideas/jobs still use it.
 - **Delete** is permanent. Their ideas and jobs show "(former employee #3)".
@@ -160,10 +168,14 @@ api/Data/scripts.csv     <- one outreach script per partner type
 | Email | PartnerType (Sorority / Student org / Business) | Message (to the partner) |
 | Phone | Campus | ForwardMessage (for their members) |
 | Campus | Date (`yyyy-MM-dd`) | UpdatedAt |
-| Semester (1-2 / 3-4 / 5-6 / 7-8) | PromoCode | |
-| Role (Lead for 7-8, otherwise blank) | Status | |
-| | ContactName, ContactInfo | |
+| Semester (1-2 / 3-4 / 5-6 / 7-8; information only) | PromoCode | |
+| AccessLevel (1-4; empty = from the semester) | Status | |
+| Role (Lead for Level 4, otherwise blank) | ContactName, ContactInfo | |
 | | CreatedAt, UpdatedAt | |
+
+**employee_page_access.csv**: `Id`, `EmployeeId` → employees.Id, `Page` (form / bank / tracker /
+content-calendar / promo-calendar / directory), `Allowed` (Yes / No). One row per page a Lead set
+differently from the person's level.
 
 When the API starts, it upgrades older CSV files to the current columns, **matching columns by
 name**: columns still in use keep their values, new columns are added empty, and removed columns
@@ -204,7 +216,7 @@ and the permission in brackets (see "Logging in").
 | POST | `/api/auth/logout` | | Log out |
 | POST | `/api/auth/password` | JSON: `currentPassword`, `newPassword` | Change your own password (8+ characters) |
 | POST | `/api/employees/{id}/reset-password` | | [ManageDirectory] Set their password back to LTPMKT |
-| GET | `/api/ideas` | | [ReviewIdeas] The Ideas Bank: ideas waiting for review + denied ideas (with `deletesOn`) |
+| GET | `/api/ideas` | | [ViewIdeas] The Ideas Bank: ideas waiting for review + denied ideas (with `deletesOn`) |
 | POST | `/api/ideas` | multipart form: `idea` = the idea as JSON (with a `links` array) | [SubmitIdeas] Submit an idea (as the logged-in person) |
 | POST | `/api/ideas/{id}/approve` | | [ReviewIdeas] Approve (Pending only); creates its tracker item |
 | POST | `/api/ideas/{id}/reject` | | [ReviewIdeas] Deny (Pending only) |
@@ -212,11 +224,12 @@ and the permission in brackets (see "Logging in").
 | GET | `/api/ideas/files/{linkId}` | | [no login: see Known mockup shortcuts] For uploaded files only (see below) |
 | GET | `/api/production?view=InProgress` | | [ViewTracker; `view=All` needs only ViewContentCalendar] Tracker items not yet Completed (`view=Completed` for completed ones, `view=All` for the Content Calendar) |
 | GET | `/api/production/statuses` | | [ViewTracker] The Status choices, in order |
-| PUT | `/api/production/{id}` | JSON: `filmerId`, `editorId`, `reviewerId`, `posterId`, `targetPostDate`, `status` | [EditTracker] Save production details |
+| PUT | `/api/production/{id}` | JSON: `filmerId`, `editorId`, `reviewerId`, `posterId`, `targetPostDate`, `status` | [AssignCrew or EditTracker] Save production details (AssignCrew only: just `filmerId` / `editorId`; the rest is kept) |
 | DELETE | `/api/production/{id}` | | [DeleteTracker] Permanently delete the item, its idea and links |
-| GET | `/api/employees` | | [EditTracker or ManageDirectory] Every employee, by campus then name |
+| GET | `/api/employees` | | [AssignCrew, EditTracker, ViewDirectory or ManageDirectory] Every employee, by campus then name (with `accessLevel`, `pageAccess`, `customAccess`) |
+| GET | `/api/employees/level-pages` | | [ViewDirectory or ManageDirectory] For each level, the pages that are Yes by default |
 | GET | `/api/employees/next-id` | | [ManageDirectory] The ID to suggest for a new intern (one higher than any ID in use) |
-| POST | `/api/employees` | JSON: `id`, `name`, `email`, `phone`, `campus`, `semester` | [ManageDirectory] Add an employee |
+| POST | `/api/employees` | JSON: `id`, `name`, `email`, `phone`, `campus`, `semester`, `accessLevel`, `pageAccess` (`{ "tracker": true, ... }`) | [ManageDirectory] Add an employee |
 | PUT | `/api/employees/{id}` | same as POST (a different `id` changes their ID and moves their ideas and tracker jobs) | [ManageDirectory] Save an employee |
 | DELETE | `/api/employees/{id}` | | [ManageDirectory] Permanently delete an employee |
 | GET | `/api/promos` | | [ViewPromos] Every promo, soonest first |
@@ -312,8 +325,18 @@ registration". This is free with Microsoft 365, but **a Microsoft 365 admin has 
        email    VARCHAR(200),
        phone    VARCHAR(30),
        campus   VARCHAR(100),
-       semester VARCHAR(3),                      -- '1-2', '3-4', '5-6' or '7-8'
-       role     VARCHAR(30) NOT NULL DEFAULT ''  -- 'Lead' for 7-8
+       semester VARCHAR(3),                      -- '1-2', '3-4', '5-6' or '7-8' (information only)
+       access_level TINYINT,                     -- 1-4 (decides access)
+       role     VARCHAR(30) NOT NULL DEFAULT ''  -- 'Lead' for Level 4
+   );
+
+   CREATE TABLE employee_page_access (           -- only pages set differently from the level
+       id          INT AUTO_INCREMENT PRIMARY KEY,
+       employee_id INT NOT NULL,
+       page        VARCHAR(30) NOT NULL,         -- 'form', 'bank', 'tracker', ...
+       allowed     BOOLEAN NOT NULL,
+       UNIQUE (employee_id, page),
+       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE ON UPDATE CASCADE
    );
 
    CREATE TABLE production_items (

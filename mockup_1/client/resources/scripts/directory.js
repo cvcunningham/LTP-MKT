@@ -1,23 +1,29 @@
-// The Intern Directory (semesters 7-8 only): every employee, grouped by semester, with Add / Edit /
-// Delete / Reset password. A Lead can't delete themselves or move themselves out of 7-8 (the API refuses).
-// Role isn't chosen here: the API makes semesters 7-8 "Lead" and leaves everyone else blank.
+// The Intern Directory: every employee, grouped by access level. Level 4 (ManageDirectory) gets
+// Add / Edit / Delete / Reset password; anyone else a Lead lets in sees it view only.
+// The Edit pop-up sets the level and a Yes/No switch per page (what the level allows on each page is
+// in api/Auth/Permissions.cs). A Lead can't delete themselves or take away their own access to edit
+// the directory (the API refuses). Role isn't chosen here: the API makes Level 4 "Lead".
 
-// The semester groups, in order. value = what's saved in employees.csv's Semester column.
-const SEMESTER_GROUPS = [
-    { value: "1-2", title: "Semester 1 & 2" },
-    { value: "3-4", title: "Semester 3 & 4" },
-    { value: "5-6", title: "Semester 5 & 6" },
-    { value: "7-8", title: "Semester 7 & 8" }
+// The access level groups, in order. value = what's saved in employees.csv's AccessLevel column.
+const ACCESS_LEVEL_GROUPS = [
+    { value: 1, title: "Level 1 (Semesters 1 & 2)" },
+    { value: 2, title: "Level 2 (Semesters 3 & 4)" },
+    { value: 3, title: "Level 3 (Semesters 5 & 6)" },
+    { value: 4, title: "Level 4: Leads (Semesters 7 & 8)" }
 ];
 
 const directoryGroups = document.getElementById("directory-groups");
 let interns = [];
+let levelPages = null; // for each level, the pages that are Yes by default (loaded once)
 
 async function loadDirectory() {
     const message = document.getElementById("directory-load-message");
+    const canManage = can("ManageDirectory");
+    document.getElementById("add-intern").classList.toggle("d-none", !canManage);
+    document.getElementById("directory-edit-help").classList.toggle("d-none", !canManage);
     showMessage(message, "Loading...");
     try {
-        interns = await getJson("/employees");
+        [interns, levelPages] = await Promise.all([getJson("/employees"), levelPages || getJson("/employees/level-pages")]);
         message.textContent = "";
         renderDirectory();
     } catch (error) {
@@ -25,19 +31,19 @@ async function loadDirectory() {
     }
 }
 
-// One table per semester group. Anyone whose semester isn't one of the groups (e.g. typed by
-// hand in the CSV) is listed at the end, so they can be fixed with Edit.
+// One table per access level. Anyone without a level (e.g. typed by hand in the CSV) is listed at
+// the end, so they can be fixed with Edit.
 function renderDirectory() {
     directoryGroups.textContent = "";
-    SEMESTER_GROUPS.forEach((group) => {
-        renderSemesterGroup(group.title, interns.filter((e) => e.semester === group.value), "No interns in these semesters yet.");
+    ACCESS_LEVEL_GROUPS.forEach((group) => {
+        renderLevelGroup(group.title, interns.filter((e) => e.accessLevel === group.value), "No interns at this level yet.");
     });
-    const known = SEMESTER_GROUPS.map((group) => group.value);
-    const others = interns.filter((e) => !known.includes(e.semester));
-    if (others.length > 0) renderSemesterGroup("No semester set", others, "");
+    const known = ACCESS_LEVEL_GROUPS.map((group) => group.value);
+    const others = interns.filter((e) => !known.includes(e.accessLevel));
+    if (others.length > 0) renderLevelGroup("No access level set", others, "");
 }
 
-function renderSemesterGroup(title, people, emptyText) {
+function renderLevelGroup(title, people, emptyText) {
     const section = addElement(directoryGroups, "section", null, "mb-4");
     const heading = addElement(section, "h2", title, "h4");
     addElement(heading, "span", String(people.length), "badge text-bg-secondary ms-2 align-middle fs-6");
@@ -48,20 +54,24 @@ function renderSemesterGroup(title, people, emptyText) {
     }
     const table = addElement(addElement(section, "div", null, "table-responsive"), "table", null, "table table-hover align-middle");
     const headRow = addElement(addElement(table, "thead"), "tr");
-    ["ID", "Name", "Campus", "Role", "Email", "Phone"].forEach((text) => addElement(headRow, "th", text));
-    addElement(addElement(headRow, "th"), "span", "Actions", "visually-hidden");
+    ["ID", "Name", "Campus", "Semester", "Role", "Email", "Phone"].forEach((text) => addElement(headRow, "th", text));
+    if (can("ManageDirectory")) addElement(addElement(headRow, "th"), "span", "Actions", "visually-hidden");
 
     const body = addElement(table, "tbody");
     people.forEach((person) => {
         const row = addElement(body, "tr");
         addElement(row, "td", String(person.id), "text-body-secondary");
-        addElement(row, "td", person.name, "fw-semibold");
+        const name = addElement(row, "td", person.name, "fw-semibold");
+        // A Lead turned at least one page on or off differently from the level's usual pages.
+        if (person.customAccess) addElement(name, "span", "Custom page access", "badge text-bg-warning ms-2 fw-normal");
         addElement(row, "td", person.campus || "—");
+        addElement(row, "td", person.semester || "—", "text-nowrap");
         const role = addElement(row, "td");
         if (person.role) addElement(role, "span", person.role, "badge text-bg-primary");
         else role.textContent = "—";
         addElement(row, "td", person.email || "—");
         addElement(row, "td", person.phone || "—", "text-nowrap");
+        if (!can("ManageDirectory")) return;
         const actions = addElement(row, "td", null, "text-nowrap text-end");
         addButton(actions, "Edit", () => openInternForm(person));
         if (person.id !== me.employee.id) addButton(actions, "Delete", () => deleteIntern(person), "btn-outline-danger");
@@ -96,6 +106,8 @@ async function openInternForm(person) {
     document.getElementById("intern-name").value = person ? person.name : "";
     document.getElementById("intern-campus").value = person ? person.campus : "";
     document.getElementById("intern-semester").value = person ? person.semester : "";
+    internLevel.value = person ? person.accessLevel || "" : "";
+    renderPageAccess(person ? person.pageAccess : defaultPageAccess(internLevel.value));
     document.getElementById("intern-email").value = person ? person.email : "";
     document.getElementById("intern-phone").value = person ? person.phone : "";
     internDeleteButton.hidden = !person || person.id === me.employee.id;
@@ -138,6 +150,8 @@ internForm.addEventListener("submit", async (event) => {
         name: document.getElementById("intern-name").value,
         campus: document.getElementById("intern-campus").value,
         semester: document.getElementById("intern-semester").value,
+        accessLevel: Number(internLevel.value),
+        pageAccess: readPageAccess(),
         email: document.getElementById("intern-email").value,
         phone: document.getElementById("intern-phone").value
     };
@@ -165,6 +179,65 @@ internForm.addEventListener("submit", async (event) => {
     }
     saveButton.disabled = false;
 });
+
+// ----- Access level and page Yes/No switches ------------------------------------------------
+
+const internLevel = document.getElementById("intern-level");
+const internPageAccess = document.getElementById("intern-page-access");
+
+// Changing the level resets the switches to that level's pages (they can still be changed before Save).
+internLevel.addEventListener("change", () => renderPageAccess(defaultPageAccess(internLevel.value)));
+
+// A new intern's level follows their semester (1 & 2 -> Level 1, ...) until a level is chosen.
+document.getElementById("intern-semester").addEventListener("change", (event) => {
+    if (editingIntern || internLevel.value) return;
+    const level = ["1-2", "3-4", "5-6", "7-8"].indexOf(event.target.value) + 1;
+    if (level > 0) {
+        internLevel.value = level;
+        renderPageAccess(defaultPageAccess(level));
+    }
+});
+
+// { "form": true, "bank": false, ... } for a level ("" = no level yet: every page No).
+function defaultPageAccess(level) {
+    const pages = (levelPages && levelPages[level]) || [];
+    return Object.fromEntries(PAGES.map((page) => [page.id, pages.includes(page.id)]));
+}
+
+// One row per page: its name, what Yes gives at the chosen level, and a Yes / No switch.
+function renderPageAccess(pageAccess) {
+    internPageAccess.textContent = "";
+    const levelDefaults = defaultPageAccess(internLevel.value);
+    PAGES.forEach((page) => {
+        const row = addElement(internPageAccess, "div", null, "list-group-item d-flex justify-content-between align-items-center gap-3");
+        const text = addElement(row, "div");
+        addElement(text, "div", page.title, "fw-semibold");
+        if (internLevel.value) {
+            addElement(text, "div", levelDefaults[page.id] ? `Level ${internLevel.value} access` : "Yes = view only", "small text-body-secondary");
+        }
+
+        const group = addElement(row, "div", null, "btn-group btn-group-sm flex-shrink-0");
+        group.setAttribute("role", "group");
+        group.setAttribute("aria-label", `${page.title} access`);
+        [["yes", "Yes", "btn-outline-success"], ["no", "No", "btn-outline-secondary"]].forEach(([value, label, style]) => {
+            const input = addElement(group, "input", null, "btn-check");
+            input.type = "radio";
+            input.name = "intern-access-" + page.id;
+            input.id = `intern-access-${page.id}-${value}`;
+            input.value = value;
+            input.checked = (value === "yes") === Boolean(pageAccess[page.id]);
+            const button = addElement(group, "label", label, "btn " + style);
+            button.htmlFor = input.id;
+        });
+    });
+}
+
+function readPageAccess() {
+    return Object.fromEntries(PAGES.map((page) => [
+        page.id,
+        internPageAccess.querySelector(`input[name="intern-access-${page.id}"]:checked`).value === "yes"
+    ]));
+}
 
 function showInternError(text) {
     internError.textContent = "";

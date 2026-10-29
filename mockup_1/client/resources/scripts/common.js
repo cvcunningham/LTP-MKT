@@ -3,21 +3,22 @@ const API_BASE = "http://localhost:5050/api";
 
 // The six pages, in navbar order. They're all sections of index.html (<section data-page="...">);
 // the address after # says which one is shown, e.g. index.html#bank. See "Pages" below.
-// permission = what the logged-in person needs to see the page (see "Logged in" below).
+// permission = what the logged-in person needs to see the page (see "Logged in" below). The ids are
+// also the page names in the Intern Directory's Yes/No switches (api/Auth/Permissions.cs).
 const PAGES = [
     { id: "form", title: "Ideas Form", permission: "SubmitIdeas" },
-    { id: "bank", title: "Ideas Bank", permission: "ReviewIdeas" },
+    { id: "bank", title: "Ideas Bank", permission: "ViewIdeas" },
     { id: "tracker", title: "Production Tracker", permission: "ViewTracker" },
     { id: "content-calendar", title: "Content Calendar", permission: "ViewContentCalendar" },
     { id: "promo-calendar", title: "Promo Calendar", permission: "ViewPromos" },
-    { id: "directory", title: "Intern Directory", permission: "ManageDirectory" }
+    { id: "directory", title: "Intern Directory", permission: "ViewDirectory" }
 ];
 
 // ----- Logged in ----------------------------------------------------------------
 // auth.js logs people in and out. While logged in, `me` is { employee, permissions } from the API.
-// The permissions come from the semester (api/Auth/Permissions.cs):
-//   SubmitIdeas, ViewContentCalendar, ViewTracker, EditTracker, DeleteTracker,
-//   ViewPromos, EditPromos, DeletePromos, ReviewIdeas, ManageDirectory
+// The permissions come from the access level and the per-page Yes/No switches (api/Auth/Permissions.cs):
+//   SubmitIdeas, ViewIdeas, ReviewIdeas, ViewTracker, AssignCrew, EditTracker, DeleteTracker,
+//   ViewContentCalendar, ViewPromos, EditPromos, DeletePromos, ViewDirectory, ManageDirectory
 // The pages use can() to hide tabs and buttons; the API checks the same permissions on every request.
 let me = null;
 

@@ -5,7 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace api.Controllers;
 
-// The Intern Directory (semesters 7-8 only), and the employee list for the tracker's dropdowns.
+// The Intern Directory (edit: Level 4; view only: anyone a Lead sets to Yes), and the employee list
+// for the tracker's dropdowns.
 [ApiController]
 [Route("api/employees")]
 public class EmployeesController : ControllerBase
@@ -23,9 +24,17 @@ public class EmployeesController : ControllerBase
 
     // GET /api/employees   (sorted by campus, then name)
     [HttpGet]
-    [RequirePermission(Permissions.EditTracker, Permissions.ManageDirectory)]
+    [RequirePermission(Permissions.AssignCrew, Permissions.EditTracker, Permissions.ViewDirectory, Permissions.ManageDirectory)]
     public async Task<List<EmployeeDto>> GetAll() =>
         (await _repo.GetAllAsync()).Select(DtoMapping.ToDto).ToList();
+
+    // GET /api/employees/level-pages   (for each access level, the pages that are Yes by default,
+    // e.g. { "1": ["form", "content-calendar"], ... }. The Edit pop-up resets the switches to these
+    // when the level is changed.)
+    [HttpGet("level-pages")]
+    [RequirePermission(Permissions.ViewDirectory, Permissions.ManageDirectory)]
+    public Dictionary<int, string[]> GetLevelPages() =>
+        Employee.AccessLevels.ToDictionary(level => level, Permissions.DefaultPages);
 
     // GET /api/employees/next-id   (the id the Add form suggests: one higher than any id in use,
     // including deleted employees' ids that old ideas or tracker jobs still point to)
@@ -34,7 +43,8 @@ public class EmployeesController : ControllerBase
     public async Task<object> GetNextId() =>
         new { id = (await TakenIds()).DefaultIfEmpty(0).Max() + 1 };
 
-    // POST /api/employees   (JSON body: id, name, email, phone, campus, semester)
+    // POST /api/employees   (JSON body: id, name, email, phone, campus, semester, accessLevel,
+    // pageAccess: { "tracker": true, ... })
     [HttpPost]
     [RequirePermission(Permissions.ManageDirectory)]
     public async Task<ActionResult<EmployeeDto>> Create(EmployeeRequest request)
@@ -54,8 +64,9 @@ public class EmployeesController : ControllerBase
     {
         var (employee, errors) = await Validate(request, id);
         // So a Lead can't lock themselves out of the directory.
-        if (id == HttpContext.CurrentEmployee().Id && employee.Semester != "7-8")
-            errors.Add("You can't move yourself out of semesters 7-8. Ask another Lead to do it.");
+        if (id == HttpContext.CurrentEmployee().Id && !Permissions.Has(employee, Permissions.ManageDirectory))
+            errors.Add("You can't take away your own access to edit the Intern Directory (Level 4 with Intern Directory " +
+                       "set to Yes). Ask another Lead to do it.");
         if (errors.Count > 0)
             return BadRequest(new { errors });
         if (!await _repo.UpdateAsync(id, employee))
@@ -97,8 +108,8 @@ public class EmployeesController : ControllerBase
         return ids;
     }
 
-    // Checks the form. Id, name, campus and semester are required. currentId is the employee's
-    // id before this edit (null when adding).
+    // Checks the form. Id, name, campus, semester and access level are required. currentId is the
+    // employee's id before this edit (null when adding).
     private async Task<(Employee Employee, List<string> Errors)> Validate(EmployeeRequest request, int? currentId)
     {
         var errors = new List<string>();
@@ -112,8 +123,9 @@ public class EmployeesController : ControllerBase
             errors.Add("Please choose a campus: " + string.Join(", ", Employee.Campuses) + ".");
         if (!Employee.Semesters.Contains(request.Semester))
             errors.Add("Please choose a semester: " + string.Join(", ", Employee.Semesters) + ".");
+        if (request.AccessLevel is not int level || !Employee.AccessLevels.Contains(level))
+            errors.Add("Please choose an access level: " + string.Join(", ", Employee.AccessLevels) + ".");
 
-        var semester = request.Semester ?? "";
         var employee = new Employee
         {
             Id = request.Id ?? 0,
@@ -121,8 +133,10 @@ public class EmployeesController : ControllerBase
             Email = request.Email?.Trim() ?? "",
             Phone = request.Phone?.Trim() ?? "",
             Campus = request.Campus ?? "",
-            Semester = semester,
-            Role = Employee.RoleFor(semester)
+            Semester = request.Semester ?? "",
+            AccessLevel = request.AccessLevel ?? 0,
+            Role = Employee.RoleFor(request.AccessLevel ?? 0),
+            PageAccess = Permissions.Overrides(request.AccessLevel ?? 0, request.PageAccess)
         };
         return (employee, errors);
     }

@@ -1,3 +1,5 @@
+using api.Auth;
+
 namespace api.Models;
 
 // Turns the stored rows into what the API sends back. Shared by the controllers.
@@ -36,7 +38,9 @@ public static class DtoMapping
         ToDto(item.Idea, employees));
 
     public static EmployeeDto ToDto(Employee e) =>
-        new(e.Id, e.Name, e.Email, e.Phone, e.Campus, e.Semester, e.Role);
+        new(e.Id, e.Name, e.Email, e.Phone, e.Campus, e.Semester, e.AccessLevel, e.Role,
+            Permissions.Pages.ToDictionary(page => page, page => Permissions.HasPage(e, page)),
+            e.PageAccess.Count > 0);
 
     public static PromoDto ToDto(Promo p) =>
         new(p.Id, p.Name, p.PartnerType, p.Campus, p.Date, p.PromoCode, p.Status, p.ContactName, p.ContactInfo, p.UpdatedAt);

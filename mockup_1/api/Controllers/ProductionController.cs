@@ -50,10 +50,24 @@ public class ProductionController : ControllerBase
     public string[] GetStatuses() => ProductionItem.Statuses;
 
     // PUT /api/production/3   (JSON body: filmerId, editorId, reviewerId, posterId, targetPostDate, status)
+    // With AssignCrew but not EditTracker (Level 2), only filmerId and editorId are used; everything
+    // else stays as it is.
     [HttpPut("{id}")]
-    [RequirePermission(Permissions.EditTracker)]
+    [RequirePermission(Permissions.AssignCrew, Permissions.EditTracker)]
     public async Task<IActionResult> Update(int id, ProductionUpdateRequest request)
     {
+        var current = (await _repo.GetProductionAsync()).FirstOrDefault(p => p.Id == id);
+        if (current == null)
+            return NotFound();
+        var crewOnly = !Permissions.Has(HttpContext.CurrentEmployee(), Permissions.EditTracker);
+        if (crewOnly)
+        {
+            request.ReviewerId = current.ReviewerId;
+            request.PosterId = current.PosterId;
+            request.TargetPostDate = current.TargetPostDate;
+            request.Status = current.Status;
+        }
+
         var errors = new List<string>();
         if (!ProductionItem.Statuses.Contains(request.Status))
             errors.Add("Please choose a status from the list.");
@@ -81,6 +95,10 @@ public class ProductionController : ControllerBase
             EditorId = request.EditorId,
             ReviewerId = request.ReviewerId,
             PosterId = request.PosterId,
+            // The dropdowns replace any names typed before employees.csv existed, except for the
+            // jobs a crew-only save doesn't touch.
+            Reviewer = crewOnly ? current.Reviewer : "",
+            Poster = crewOnly ? current.Poster : "",
             TargetPostDate = request.TargetPostDate,
             Status = request.Status
         };

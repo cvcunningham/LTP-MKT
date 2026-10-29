@@ -1,7 +1,7 @@
 // The Promo Calendar: outreach scripts, the Promo List (every promo), and a calendar of the
 // Scheduled and Completed promos (CALENDAR_STATUSES).
-// Semesters 3-4 see it view only (and can Copy scripts); 5-6 and 7-8 can add and edit promos and
-// script wording (EditPromos); only 7-8 can delete promos (DeletePromos).
+// Level 2 sees it view only (and can Copy scripts); Levels 3 and 4 can add and edit promos and
+// script wording (EditPromos); only Level 4 can delete promos (DeletePromos).
 
 // The mobile ordering app for each campus, filled in for [APP] in the scripts.
 const ORDERING_APPS = {
@@ -217,7 +217,7 @@ async function deletePromo(promo) {
     return deleted;
 }
 
-// View only (semesters 3-4): a promo's details in a pop-up, with nothing to change.
+// View only (e.g. Level 2): a promo's details in a pop-up, with nothing to change.
 const promoDetails = new bootstrap.Modal(document.getElementById("promo-details"));
 
 function showPromoDetails(promo) {

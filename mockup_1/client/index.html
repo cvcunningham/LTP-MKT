@@ -211,8 +211,9 @@
                 <button type="button" class="btn btn-primary btn-sm" id="add-intern">+ Add intern</button>
             </div>
             <p class="text-body-secondary">
-                Everyone on the team, by semester. Interns in semesters 7 &amp; 8 are <b>Leads</b>.
-                Click <b>Edit</b> to change someone's details, including their ID or semester.
+                Everyone on the team, by access level. The level decides what someone can do on each page;
+                Level 4 interns are <b>Leads</b>.
+                <span id="directory-edit-help">Click <b>Edit</b> to change someone's details, level, or which pages they can open.</span>
             </p>
             <div id="directory-load-message"></div>
             <div id="directory-groups"></div>
@@ -320,7 +321,7 @@
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-sm-6 mb-3">
+                        <div class="col-sm-4 mb-3">
                             <label for="intern-campus" class="form-label">Campus (required)</label>
                             <select class="form-select" id="intern-campus" required>
                                 <option value="">Choose a campus</option>
@@ -328,14 +329,24 @@
                                 <option>Ole Miss</option>
                             </select>
                         </div>
-                        <div class="col-sm-6 mb-3">
+                        <div class="col-sm-4 mb-3">
                             <label for="intern-semester" class="form-label">Semester (required)</label>
                             <select class="form-select" id="intern-semester" required>
                                 <option value="">Choose a semester</option>
                                 <option value="1-2">Semester 1 &amp; 2</option>
                                 <option value="3-4">Semester 3 &amp; 4</option>
                                 <option value="5-6">Semester 5 &amp; 6</option>
-                                <option value="7-8">Semester 7 &amp; 8 (Lead)</option>
+                                <option value="7-8">Semester 7 &amp; 8</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-4 mb-3">
+                            <label for="intern-level" class="form-label">Access level (required)</label>
+                            <select class="form-select" id="intern-level" required>
+                                <option value="">Choose a level</option>
+                                <option value="1">Level 1</option>
+                                <option value="2">Level 2</option>
+                                <option value="3">Level 3</option>
+                                <option value="4">Level 4 (Lead)</option>
                             </select>
                         </div>
                     </div>
@@ -349,6 +360,15 @@
                             <input type="tel" class="form-control" id="intern-phone">
                         </div>
                     </div>
+                    <fieldset class="mb-3">
+                        <legend class="form-label fs-6 mb-1">Page access</legend>
+                        <div class="form-text mt-0 mb-2">
+                            <b>Yes</b> = they can open the page. What they can do there comes from their level;
+                            a page their level doesn't normally include is <b>view only</b>.
+                            Changing the level resets these to that level's pages.
+                        </div>
+                        <div id="intern-page-access" class="list-group"></div>
+                    </fieldset>
                     <div class="form-text mb-3">
                         Changing the ID also moves this person's ideas and Production Tracker jobs to the new ID.
                     </div>

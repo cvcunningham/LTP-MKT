@@ -8,7 +8,7 @@ namespace api.Auth;
 // Put on a controller action: [RequirePermission(Permissions.EditPromos)]
 // The request must come from someone logged in (401 otherwise) who has at least one of the listed
 // permissions (403 otherwise). With no permissions listed, being logged in is enough.
-// The employee is read fresh from employees.csv each time, so a change of semester applies at once.
+// The employee is read fresh from employees.csv each time, so a change of access applies at once.
 // The action can get the logged-in employee with HttpContext.CurrentEmployee().
 public class RequirePermissionAttribute : TypeFilterAttribute
 {

@@ -3,3 +3,4 @@ Id,IdeaId,Filmer,Editor,Reviewer,Poster,TargetPostDate,Status,UpdatedAt,FilmerId
 3,3,,,,,2026-10-20,Completed,2026-10-21T16:05:52.8778437Z,,,,
 4,4,,,,,2026-10-30,Scheduled,2026-10-27T04:15:57.0988984Z,,,1,1
 5,6,,,,,2026-10-29,Scheduled,2026-10-21T16:38:37.4522117Z,1,1,,
+6,5,,,,,2026-10-28,Scheduled,2026-10-27T15:42:45.0257713Z,2,,1,

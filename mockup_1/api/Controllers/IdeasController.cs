@@ -42,7 +42,7 @@ public class IdeasController : ControllerBase
     // GET /api/ideas   (the Idea Bank: waiting for review + rejected.
     // Approved ideas are on the Production Tracker instead.)
     [HttpGet]
-    [RequirePermission(Permissions.ReviewIdeas)]
+    [RequirePermission(Permissions.ViewIdeas)]
     public async Task<ActionResult<List<IdeaDto>>> GetAll()
     {
         // Rejected ideas are deleted automatically once they're old enough. Checking here,

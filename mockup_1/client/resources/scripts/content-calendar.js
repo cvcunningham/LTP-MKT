@@ -45,7 +45,7 @@ function showDetails(item) {
     const view = item.status === "Completed" ? "Completed" : "InProgress";
     const open = document.getElementById("details-open");
     open.href = `#tracker?view=${view}&item=${item.id}`;
-    open.classList.toggle("d-none", !can("ViewTracker")); // semesters 1-2 can't see the tracker
+    open.classList.toggle("d-none", !can("ViewTracker")); // e.g. Level 1 can't see the tracker
     details.show();
 }
 

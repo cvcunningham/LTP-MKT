@@ -61,6 +61,8 @@ public record LoginDto(string Token, MeDto Me);
 public record MeDto(EmployeeDto Employee, string[] Permissions);
 
 // What the Intern Directory's Add / Save sends (JSON). Id is the employee's (new) id.
+// PageAccess = the Yes/No switch for each page id (e.g. "tracker": true); a page that's left out
+// gets the level's default.
 public class EmployeeRequest
 {
     public int? Id { get; set; }
@@ -69,6 +71,8 @@ public class EmployeeRequest
     public string? Phone { get; set; }
     public string? Campus { get; set; }
     public string? Semester { get; set; }
+    public int? AccessLevel { get; set; }
+    public Dictionary<string, bool> PageAccess { get; set; } = new();
 }
 
 // What the Promo List's Add / Save sends (JSON).
@@ -129,8 +133,19 @@ public record ProductionDto(
     DateTime UpdatedAt,
     IdeaDto Idea);
 
-// What GET /api/employees sends back (JSON).
-public record EmployeeDto(int Id, string Name, string Email, string Phone, string Campus, string Semester, string Role);
+// What GET /api/employees sends back (JSON). PageAccess = Yes (true) / No (false) for every page id;
+// CustomAccess = a Lead set at least one page differently from the level's default.
+public record EmployeeDto(
+    int Id,
+    string Name,
+    string Email,
+    string Phone,
+    string Campus,
+    string Semester,
+    int AccessLevel,
+    string Role,
+    Dictionary<string, bool> PageAccess,
+    bool CustomAccess);
 
 // What GET /api/promos sends back (JSON).
 public record PromoDto(

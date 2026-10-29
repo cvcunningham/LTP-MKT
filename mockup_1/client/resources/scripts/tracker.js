@@ -1,12 +1,13 @@
 // The Production Tracker: approved ideas and their production details.
-// Semesters 3-4 see it view only; 5-6 and 7-8 can edit (EditTracker); only 7-8 can delete.
+// Level 2 can change only the Filmer and Editor (AssignCrew); Levels 3 and 4 can change everything
+// (EditTracker); only Level 4 can delete. Anyone else a Lead lets in sees it view only.
 // index.html#tracker?view=Completed&item=3 opens the Completed list and scrolls to item 3
 // (used by the Content Calendar's "Open in Production Tracker" link).
 const container = document.getElementById("items");
 const viewFilter = document.getElementById("view-filter");
 
 let statuses = [];  // the Status choices, loaded from the API
-let employees = []; // for the Filmer / Editor / Reviewer / Poster dropdowns (only loaded for editors)
+let employees = []; // for the Filmer / Editor / Reviewer / Poster dropdowns (only loaded for AssignCrew)
 
 viewFilter.addEventListener("change", loadItems);
 
@@ -18,7 +19,7 @@ async function loadTracker() {
     try {
         [statuses, employees] = await Promise.all([
             getJson("/production/statuses"),
-            can("EditTracker") ? getJson("/employees") : []
+            can("AssignCrew") ? getJson("/employees") : []
         ]);
     } catch (error) {
         showMessage(container, error.message, "text-danger");
@@ -75,12 +76,16 @@ function renderItem(item) {
     body.appendChild(renderLinks(idea.links, "Content files"));
     addElement(body, "hr");
 
-    if (!can("EditTracker")) {
+    if (!can("AssignCrew")) {
         renderItemReadOnly(card, body, item);
         return column;
     }
+    if (!can("EditTracker")) {
+        renderItemCrewOnly(card, body, item);
+        return column;
+    }
 
-    // Production details (5-6 and 7-8 can change these).
+    // Production details (Levels 3 and 4 can change these).
     const row = addElement(body, "div", null, "row g-2");
     const filmer = addPersonField(row, "Filmer", item.filmerId, item.filmer);
     const editor = addPersonField(row, "Editor", item.editorId, item.editor);
@@ -125,7 +130,30 @@ function renderItem(item) {
     return column;
 }
 
-// View only (semesters 3-4): the production details as plain text, no Save or Delete.
+// Level 2: Filmer and Editor dropdowns with a Save button; everything else as plain text.
+// (The API ignores any other change from them.)
+function renderItemCrewOnly(card, body, item) {
+    const row = addElement(body, "div", null, "row g-2 mb-3");
+    const filmer = addPersonField(row, "Filmer", item.filmerId, item.filmer);
+    const editor = addPersonField(row, "Editor", item.editorId, item.editor);
+    addDetail(body, "Reviewer/approver", item.reviewer || "Not assigned");
+    addDetail(body, "Poster (who posts it)", item.poster || "Not assigned");
+    addDetail(body, "Target post date", formatDay(item.targetPostDate));
+    addDetail(body, "Status", item.status);
+
+    const footer = addElement(card, "div", null, "card-footer d-flex flex-wrap align-items-center gap-2");
+    addButton(footer, "Save", async () => {
+        const saved = await sendChange(`${API_BASE}/production/${item.id}`, "PUT", {
+            filmerId: selectedId(filmer),
+            editorId: selectedId(editor)
+        });
+        // If saving failed, the page is NOT reloaded, so the changes are kept.
+        if (saved) loadItems();
+    }, "btn-primary");
+    addElement(footer, "small", "Last saved " + formatDateTime(item.updatedAt), "text-body-secondary ms-auto");
+}
+
+// View only: the production details as plain text, no Save or Delete.
 function renderItemReadOnly(card, body, item) {
     addDetail(body, "Filmer", item.filmer || "Not assigned");
     addDetail(body, "Editor", item.editor || "Not assigned");
