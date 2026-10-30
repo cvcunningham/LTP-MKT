@@ -10,9 +10,22 @@ builder.Services.AddControllers();
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
-builder.Services.AddSingleton<IIdeaRepository, CsvIdeaRepository>();
-builder.Services.AddSingleton<IEmployeeRepository, CsvEmployeeRepository>();
-builder.Services.AddSingleton<IPromoRepository, CsvPromoRepository>();
+// Where the data is kept: "MySql" (the database) or "Csv" (the files in Data/), set by
+// "Database:Provider" in appsettings.json. The controllers work the same with either.
+var useMySql = builder.Configuration["Database:Provider"] == "MySql";
+if (useMySql)
+{
+    builder.Services.AddSingleton<MySqlDatabase>();
+    builder.Services.AddSingleton<IIdeaRepository, MySqlIdeaRepository>();
+    builder.Services.AddSingleton<IEmployeeRepository, MySqlEmployeeRepository>();
+    builder.Services.AddSingleton<IPromoRepository, MySqlPromoRepository>();
+}
+else
+{
+    builder.Services.AddSingleton<IIdeaRepository, CsvIdeaRepository>();
+    builder.Services.AddSingleton<IEmployeeRepository, CsvEmployeeRepository>();
+    builder.Services.AddSingleton<IPromoRepository, CsvPromoRepository>();
+}
 
 // Who is logged in (in memory; restarting the API logs everyone out).
 builder.Services.AddSingleton<SessionStore>();
@@ -22,6 +35,10 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IFileStorage, OneDriveFileStorage>();
 
 var app = builder.Build();
+
+// Creates the MySQL database and tables if they're missing (and copies the CSV files in the first time).
+if (useMySql)
+    await app.Services.GetRequiredService<MySqlDatabase>().SetupAsync(app.Environment, app.Logger);
 
 app.UseCors();
 app.MapControllers();

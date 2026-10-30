@@ -55,6 +55,9 @@ const PROMO_STATUS_CLASSES = {
 // The Bootstrap breakpoint from which the navbar is one row (below it: the ☰ menu).
 const NAVBAR_BREAKPOINT = "xl";
 
+// The team's shared Google Drive folder, linked from the navbar on every page.
+const TEAM_DRIVE_URL = "https://drive.google.com/drive/folders/1GgcGjG14kERwPeDVVwlTV7HtKCV3gCGf";
+
 // Fills <nav id="site-nav"> with the Bootstrap navbar: the pages the logged-in person can see, and
 // their name with Change password / Log out. showCurrentPage() highlights the current page.
 // Before login it's just the logo.
@@ -109,6 +112,12 @@ function renderNavbar() {
     // Who's logged in, with Change password and Log out (handled in auth.js).
     const account = addElement(collapse, "div", null,
         "d-flex flex-nowrap align-items-center gap-2 py-2 py-" + NAVBAR_BREAKPOINT + "-0 ms-" + NAVBAR_BREAKPOINT + "-3");
+    // The team's shared Google Drive folder, for everyone on every page (opens in a new tab).
+    const driveLink = addElement(account, "a", "📁 Team Drive", "btn btn-sm btn-outline-primary text-nowrap");
+    driveLink.href = TEAM_DRIVE_URL;
+    driveLink.target = "_blank";
+    driveLink.rel = "noopener";
+    driveLink.title = "Open the team's Google Drive folder";
     addElement(account, "span", me.employee.name, "fw-semibold text-nowrap");
     const changePassword = addButton(account, "Change password", openPasswordForm, "btn-outline-primary");
     changePassword.classList.replace("me-2", "text-nowrap");

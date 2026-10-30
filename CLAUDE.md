@@ -28,12 +28,16 @@ MySQL migration plan). Keep building there.
 - **Front end:** plain **HTML**, **CSS** and **JavaScript** (vanilla, no frameworks or build step),
   styled with **Bootstrap 5 from a CDN** (jsDelivr, pinned version, e.g. `bootstrap@5.3.3`).
 - **Back end:** **C#** ASP.NET Core Web API (.NET 10), **JSON** between the pages and the API.
-- **Data:** **comma-delimited CSV files** in `mockup_1/api/Data/` for now; later a **MySQL**
-  database. Keep every CSV table-shaped (one row per record, an `Id` column, other tables referred
-  to by Id) so each file translates directly to a SQL table.
-- Architecture: Controllers → Repository interface (e.g. `IIdeaRepository`) → CSV implementation
-  (e.g. `CsvIdeaRepository`). Moving to MySQL = write the MySQL implementation and change one line
-  per repository in `Program.cs`.
+- **Data:** a **MySQL** database (`low_tide`, local MySQL 8 for now, a cloud host later), or the
+  **comma-delimited CSV files** in `mockup_1/api/Data/`. `"Database": { "Provider": "MySql" | "Csv" }`
+  in `appsettings.json` picks which. The MySQL connection string is in `dotnet user-secrets`
+  (`ConnectionStrings:LowTide`), never in git. On start the API creates the database and tables if
+  missing (`MySqlDatabase.cs`) and, only if every table is empty, copies the CSV files in. Keep the
+  CSVs and the tables in step (same columns, snake_case in SQL): a new column goes in both.
+- Architecture: Controllers → Repository interface (e.g. `IIdeaRepository`) → a CSV implementation
+  (`CsvIdeaRepository`) and a MySQL one (`MySqlIdeaRepository`, plain ADO.NET with
+  `MySqlConnector` and @parameters, never values pasted into SQL). A change to an interface needs
+  both implementations.
 
 ## Design rules
 
@@ -56,7 +60,9 @@ MySQL migration plan). Keep building there.
   colors anywhere else.
   - Header: teal navbar with the logo image as the brand, dark purple links, the current page as a
     purple pill, and a coral stripe underneath. **One row, full width:** logo far left, the page
-    tabs beside it (never wrapping), and the logged-in name + Change password + Log out far right.
+    tabs beside it (never wrapping), and a **📁 Team Drive** link (the team's Google Drive folder,
+    `TEAM_DRIVE_URL` in `common.js`, new tab, for everyone) + the logged-in name + Change password +
+    Log out far right.
     From 1200px wide (Bootstrap `xl`, `NAVBAR_BREAKPOINT` in `common.js`) it's one row; between
     1200 and 1399px the tabs are slightly tighter (`style.css`) so a Lead's six tabs fit; narrower
     screens get the ☰ menu.

@@ -193,6 +193,8 @@ an employee's Id while ideas or tracker items use it; a missing Id shows as "(fo
 
 ## Running it
 
+0. The first time on a computer, set up MySQL (see "The MySQL database" below), or set
+   `"Provider": "Csv"` in `api/appsettings.json` to use the CSV files instead.
 1. In a terminal:
    ```
    cd api
@@ -290,103 +292,58 @@ registration". This is free with Microsoft 365, but **a Microsoft 365 admin has 
    secrets expire (6–24 months), so set a reminder to make a new one.
 5. Restart the API.
 
-## Moving to MySQL later
+## The MySQL database
 
-1. Create the tables:
-   ```sql
-   CREATE TABLE ideas (
-       id                INT AUTO_INCREMENT PRIMARY KEY,
-       name              VARCHAR(100),
-       title             VARCHAR(200) NOT NULL,
-       campus            VARCHAR(100),
-       content_type      VARCHAR(100),
-       content_category  VARCHAR(100),
-       concept           TEXT,          -- the concept and why it could work
-       caption           TEXT,
-       created_at        DATETIME NOT NULL,
-       review_status     VARCHAR(20) NOT NULL DEFAULT 'Pending',
-       denial_reason     TEXT,          -- only on older ideas
-       reviewed_at       DATETIME NULL
-   );
+The data can be kept in **MySQL** (the default) or in the **CSV files** in `api/Data/`. One setting
+in `api/appsettings.json` picks which:
 
-   CREATE TABLE idea_links (
-       id            INT AUTO_INCREMENT PRIMARY KEY,
-       idea_id       INT NOT NULL,
-       type          VARCHAR(10) NOT NULL,   -- 'Photo' or 'Video'
-       label         VARCHAR(200),
-       url           VARCHAR(2048) NOT NULL,
-       drive_item_id VARCHAR(100) NOT NULL DEFAULT '',  -- OneDrive file id; '' for pasted links
-       FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE  -- deleting an idea deletes its links
-   );
+```json
+"Database": { "Provider": "MySql" }   // or "Csv"
+```
 
-   CREATE TABLE employees (
-       id       INT AUTO_INCREMENT PRIMARY KEY,
-       name     VARCHAR(100) NOT NULL,
-       email    VARCHAR(200),
-       phone    VARCHAR(30),
-       campus   VARCHAR(100),
-       semester VARCHAR(3),                      -- '1-2', '3-4', '5-6' or '7-8' (information only)
-       access_level TINYINT,                     -- 1-4 (decides access)
-       role     VARCHAR(30) NOT NULL DEFAULT ''  -- 'Lead' for Level 4
-   );
+The pages and controllers work the same either way. `Program.cs` uses the `MySql...Repository`
+classes or the `Csv...Repository` classes depending on that setting.
 
-   CREATE TABLE employee_page_access (           -- only pages set differently from the level
-       id          INT AUTO_INCREMENT PRIMARY KEY,
-       employee_id INT NOT NULL,
-       page        VARCHAR(30) NOT NULL,         -- 'form', 'bank', 'tracker', ...
-       allowed     BOOLEAN NOT NULL,
-       UNIQUE (employee_id, page),
-       FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE ON UPDATE CASCADE
-   );
+### Setting it up on a computer (once)
 
-   CREATE TABLE production_items (
-       id               INT AUTO_INCREMENT PRIMARY KEY,
-       idea_id          INT NOT NULL UNIQUE,   -- one tracker item per approved idea
-       filmer_id        INT NULL,
-       editor_id        INT NULL,
-       reviewer_id      INT NULL,
-       poster_id        INT NULL,
-       target_post_date DATE NULL,
-       status           VARCHAR(30) NOT NULL DEFAULT 'Needs filming',
-       updated_at       DATETIME NOT NULL,
-       FOREIGN KEY (idea_id) REFERENCES ideas(id) ON DELETE CASCADE
-       -- No foreign keys to employees: a deleted employee's id stays on their jobs ("former
-       -- employee"), which a foreign key wouldn't allow. Changing an employee's id updates these
-       -- columns in code (ReplaceEmployeeIdAsync), the same as the CSV version.
-   );
-
-   CREATE TABLE promos (
-       id           INT AUTO_INCREMENT PRIMARY KEY,
-       name         VARCHAR(200) NOT NULL,
-       partner_type VARCHAR(30) NOT NULL,
-       campus       VARCHAR(100) NOT NULL,
-       promo_date   DATE NOT NULL,
-       promo_code   VARCHAR(50),
-       status       VARCHAR(30) NOT NULL DEFAULT 'Reaching out',
-       contact_name VARCHAR(100),
-       contact_info VARCHAR(200),
-       created_at   DATETIME NOT NULL,
-       updated_at   DATETIME NOT NULL
-   );
-
-   CREATE TABLE promo_scripts (
-       id              INT AUTO_INCREMENT PRIMARY KEY,
-       partner_type    VARCHAR(30) NOT NULL UNIQUE,
-       message         TEXT NOT NULL,
-       forward_message TEXT,
-       updated_at      DATETIME NULL
-   );
+1. Install **MySQL Server 8** (e.g. with MySQL Workbench) and remember the `root` password.
+2. Save the connection string in **dotnet user-secrets**, which keeps it on your computer, outside
+   the project, so the password never goes into git. From inside `api/`:
    ```
-   (Add `submitted_by_id INT NULL` to `ideas`, with no foreign key, for the same reason. The old typed-name columns only need copying if older rows still use them.)
-2. Add the `MySqlConnector` NuGet package and write `MySqlIdeaRepository : IIdeaRepository`.
-   - `AddAsync`: insert the idea, get its new id, insert each link, all in one transaction.
-   - `ApproveAsync`: in one transaction, `UPDATE ideas SET review_status = 'Approved',
-     reviewed_at = NOW() WHERE id = @id AND review_status = 'Pending'` (0 rows changed = already
-     decided), then `INSERT INTO production_items (idea_id, updated_at) VALUES (@id, NOW())`.
-   - `DeleteRejectedBeforeAsync`: `DELETE FROM ideas WHERE review_status = 'Rejected' AND
-     reviewed_at < @cutoff` (the CASCADE removes the links).
-3. Write `MySqlEmployeeRepository` and `MySqlPromoRepository` the same way, and in `Program.cs`
-   change each `AddSingleton<I...Repository, Csv...Repository>()` line to the MySQL version.
+   dotnet user-secrets set "ConnectionStrings:LowTide" "Server=localhost;Port=3306;Database=low_tide;User ID=root;Password=YOUR_PASSWORD"
+   ```
+   For a cloud MySQL host later, use its host, port, user and password instead (most need
+   `;SslMode=Required` on the end).
+3. `dotnet run` as usual. The first time, the API:
+   - creates the `low_tide` database and its tables (if they're missing), and
+   - **copies everything in from the CSV files** (only if every table is empty), keeping each
+     row's Id. After that the CSV files aren't used or changed while the provider is `MySql`.
+
+To start over from the CSV files, delete the `low_tide` database (e.g. in MySQL Workbench), and the
+next `dotnet run` copies them in again.
+
+### The tables
+
+Created by `api/Repositories/MySqlDatabase.cs` (`CreateTables`). Each table matches a CSV file (the
+same columns, in snake_case):
+
+| Table | CSV file |
+|---|---|
+| `employees` | `employees.csv` (the id is chosen in the Intern Directory, not AUTO_INCREMENT) |
+| `employee_page_access` | `employee_page_access.csv` |
+| `ideas` | `ideas.csv` |
+| `idea_links` | `links.csv` |
+| `production_items` | `production.csv` |
+| `promos` | `promos.csv` |
+| `promo_scripts` | `scripts.csv` |
+
+- Deleting an idea deletes its links and tracker item (`ON DELETE CASCADE`); deleting an employee
+  deletes their page switches.
+- The employee ids on ideas and tracker jobs have **no foreign key** on purpose: a deleted
+  employee's work keeps their id and shows "(former employee #N)". Changing an employee's id moves
+  them in code (`ReplaceEmployeeIdAsync`), the same as the CSV version.
+- Times are saved in UTC; dates as `DATE`.
+- New ideas and promos get their id from MySQL's AUTO_INCREMENT, which never reuses an id.
 
 ## Known mockup shortcuts
 
@@ -397,5 +354,5 @@ registration". This is free with Microsoft 365, but **a Microsoft 365 admin has 
 - The app can't check that a link actually works or is shared correctly.
 - If two people edit the same tracker item, promo or script at the same time, the last one to click
   Save wins.
-- New ids are "highest id + 1", so if the newest idea is deleted its id gets reused. MySQL's
-  AUTO_INCREMENT never reuses ids, so this goes away after the move.
+- With the CSV files, new ids are "highest id + 1", so if the newest idea is deleted its id gets
+  reused. MySQL's AUTO_INCREMENT never reuses ids.
