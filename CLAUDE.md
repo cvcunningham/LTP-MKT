@@ -28,10 +28,11 @@ MySQL migration plan). Keep building there.
 - **Front end:** plain **HTML**, **CSS** and **JavaScript** (vanilla, no frameworks or build step),
   styled with **Bootstrap 5 from a CDN** (jsDelivr, pinned version, e.g. `bootstrap@5.3.3`).
 - **Back end:** **C#** ASP.NET Core Web API (.NET 10), **JSON** between the pages and the API.
-- **Data:** a **MySQL** database (`low_tide`, local MySQL 8 for now, a cloud host later), or the
-  **comma-delimited CSV files** in `mockup_1/api/Data/`. `"Database": { "Provider": "MySql" | "Csv" }`
-  in `appsettings.json` picks which. The MySQL connection string is in `dotnet user-secrets`
-  (`ConnectionStrings:LowTide`), never in git. On start the API creates the database and tables if
+- **Data:** the **comma-delimited CSV files** in `mockup_1/api/Data/` (the default) or a **MySQL**
+  database (`low_tide`, local MySQL 8 for now, a cloud host later). `Database:Provider` picks which:
+  `"Csv"` in `appsettings.json` (shared), overridden with `"MySql"` in each person's own
+  `dotnet user-secrets`, next to the connection string (`ConnectionStrings:LowTide`). Never put
+  either in git. On start the API creates the database and tables if
   missing (`MySqlDatabase.cs`) and, only if every table is empty, copies the CSV files in. Keep the
   CSVs and the tables in step (same columns, snake_case in SQL): a new column goes in both.
 - Architecture: Controllers → Repository interface (e.g. `IIdeaRepository`) → a CSV implementation

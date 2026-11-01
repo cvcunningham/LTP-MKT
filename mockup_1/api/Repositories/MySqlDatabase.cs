@@ -19,7 +19,7 @@ public class MySqlDatabase
                 "The MySQL connection string is missing. From inside mockup_1/api run: " +
                 "dotnet user-secrets set \"ConnectionStrings:LowTide\" \"Server=localhost;Port=3306;" +
                 "Database=low_tide;User ID=root;Password=YOUR_PASSWORD\" " +
-                "(or set \"Database:Provider\" to \"Csv\" in appsettings.json to use the CSV files).");
+                "(or remove \"Database:Provider\" from your user-secrets to use the CSV files).");
     }
 
     // A new, open connection. MySqlConnector reuses connections behind the scenes, so opening one

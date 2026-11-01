@@ -10,8 +10,9 @@ builder.Services.AddControllers();
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
-// Where the data is kept: "MySql" (the database) or "Csv" (the files in Data/), set by
-// "Database:Provider" in appsettings.json. The controllers work the same with either.
+// Where the data is kept: "Csv" (the files in Data/, the default in appsettings.json) or "MySql"
+// (the database). To use MySQL on your computer, set "Database:Provider" to "MySql" in your own
+// dotnet user-secrets (see README). The controllers work the same with either.
 var useMySql = builder.Configuration["Database:Provider"] == "MySql";
 if (useMySql)
 {
@@ -35,6 +36,8 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IFileStorage, OneDriveFileStorage>();
 
 var app = builder.Build();
+
+app.Logger.LogInformation(useMySql ? "Data: MySQL database" : "Data: CSV files in Data/");
 
 // Creates the MySQL database and tables if they're missing (and copies the CSV files in the first time).
 if (useMySql)

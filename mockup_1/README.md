@@ -193,8 +193,7 @@ an employee's Id while ideas or tracker items use it; a missing Id shows as "(fo
 
 ## Running it
 
-0. The first time on a computer, set up MySQL (see "The MySQL database" below), or set
-   `"Provider": "Csv"` in `api/appsettings.json` to use the CSV files instead.
+0. It uses the CSV files unless you've set up MySQL on your computer (see "The MySQL database").
 1. In a terminal:
    ```
    cd api
@@ -294,12 +293,10 @@ registration". This is free with Microsoft 365, but **a Microsoft 365 admin has 
 
 ## The MySQL database
 
-The data can be kept in **MySQL** (the default) or in the **CSV files** in `api/Data/`. One setting
-in `api/appsettings.json` picks which:
-
-```json
-"Database": { "Provider": "MySql" }   // or "Csv"
-```
+The data can be kept in the **CSV files** in `api/Data/` (the default) or in **MySQL**. The setting
+`Database:Provider` picks which. `api/appsettings.json` (shared in git) says `"Csv"`, so nothing
+changes for anyone who hasn't set up MySQL. To use MySQL on **your** computer, set it to `"MySql"` in
+your own user-secrets (step 2 below), which override `appsettings.json` for you only.
 
 The pages and controllers work the same either way. `Program.cs` uses the `MySql...Repository`
 classes or the `Csv...Repository` classes depending on that setting.
@@ -313,7 +310,13 @@ classes or the `Csv...Repository` classes depending on that setting.
    dotnet user-secrets set "ConnectionStrings:LowTide" "Server=localhost;Port=3306;Database=low_tide;User ID=root;Password=YOUR_PASSWORD"
    ```
    For a cloud MySQL host later, use its host, port, user and password instead (most need
-   `;SslMode=Required` on the end).
+   `;SslMode=Required` on the end). Then turn MySQL on for your computer:
+   ```
+   dotnet user-secrets set "Database:Provider" "MySql"
+   ```
+   (`dotnet user-secrets remove "Database:Provider"` goes back to the CSV files.) If the terminal
+   gets stuck on `>>`, press Ctrl + C and use single quotes instead, or edit the file directly:
+   `%APPDATA%\Microsoft\UserSecrets\977b0f23-3bac-4e22-98f5-34a993d00152\secrets.json`.
 3. `dotnet run` as usual. The first time, the API:
    - creates the `low_tide` database and its tables (if they're missing), and
    - **copies everything in from the CSV files** (only if every table is empty), keeping each
