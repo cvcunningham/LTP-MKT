@@ -54,6 +54,12 @@ if (useMySql)
     await app.Services.GetRequiredService<MySqlDatabase>().SetupAsync(app.Environment, app.Logger);
 
 app.UseCors();
+
+// On the deployed site the API also serves the pages (the Dockerfile copies client/ into wwwroot/),
+// so the site and the API share one address. Locally there's no wwwroot, so this does nothing.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapControllers();
 
 app.Run();

@@ -1,8 +1,8 @@
 // Shared by every page. Load this before the page's own script.
 // Opened on your own computer (Live Server or a double-clicked file) it talks to the local API;
-// anywhere else (the deployed site) it talks to the Railway API.
+// on the deployed site the API serves this page too, so "/api" is on the same address.
 const RUNNING_LOCALLY = ["localhost", "127.0.0.1", ""].includes(location.hostname);
-const API_BASE = RUNNING_LOCALLY ? "http://localhost:5050/api" : "https://ltp-mkt-production.up.railway.app/api";
+const API_BASE = RUNNING_LOCALLY ? "http://localhost:5050/api" : "/api";
 
 // The six pages, in navbar order. They're all sections of index.html (<section data-page="...">);
 // the address after # says which one is shown, e.g. index.html#bank. See "Pages" below.
