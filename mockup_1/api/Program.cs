@@ -6,9 +6,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
-// The client is opened separately (e.g. Live Server), so allow cross-origin requests.
+// The client is hosted separately (Live Server, Vercel), so allow cross-origin requests. When
+// "Cors:AllowedOrigins" is set (a comma-separated list, e.g. the Vercel address; on Railway use the
+// variable Cors__AllowedOrigins), only those sites may call the API; otherwise any site can.
+var allowedOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? "")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 builder.Services.AddCors(options =>
-    options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+    options.AddDefaultPolicy(policy =>
+    {
+        if (allowedOrigins.Length > 0)
+            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        else
+            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+    }));
 
 // Where the data is kept: "Csv" (the files in Data/, the default in appsettings.json) or "MySql"
 // (the database). To use MySQL on your computer, set "Database:Provider" to "MySql" in your own
